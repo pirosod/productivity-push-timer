@@ -1,0 +1,152 @@
+[gd_scene load_steps=7 format=3 uid="uid://productivity_main"]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/feather_background.gd" id="2_bg"]
+[ext_resource type="Script" path="res://scripts/week_chart.gd" id="3_chart"]
+[ext_resource type="Script" path="res://scripts/session_table.gd" id="4_table"]
+[ext_resource type="Script" path="res://scripts/boink_sound.gd" id="5_boink"]
+[ext_resource type="Script" path="res://scripts/text_control.gd" id="6_text"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="FeatherBackground" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 1)
+script = ExtResource("2_bg")
+
+[node name="MainScroll" type="ScrollContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="Content" type="VBoxContainer" parent="MainScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 20
+
+[node name="Header" type="HBoxContainer" parent="MainScroll/Content"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="PushButton" type="Button" parent="MainScroll/Content/Header"]
+custom_minimum_size = Vector2(180, 90)
+layout_mode = 2
+toggle_mode = true
+text = "Push"
+
+[node name="TimerLabel" type="Label" parent="MainScroll/Content/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "00:00"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SnoozeButton" type="Button" parent="MainScroll/Content/Header"]
+custom_minimum_size = Vector2(180, 90)
+layout_mode = 2
+text = "Snooze"
+
+[node name="HistoryPast" type="VBoxContainer" parent="MainScroll/Content"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 30
+
+[node name="TodaySection" type="VBoxContainer" parent="MainScroll/Content"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TodayHeader" type="Label" parent="MainScroll/Content/TodaySection"]
+layout_mode = 2
+text = "Today"
+horizontal_alignment = 1
+
+[node name="TodayTable" type="VBoxContainer" parent="MainScroll/Content/TodaySection"]
+layout_mode = 2
+script = ExtResource("4_table")
+
+[node name="HistoryTab" type="Button" parent="MainScroll/Content"]
+layout_mode = 2
+text = "Show History"
+
+[node name="WeekChart" type="Control" parent="MainScroll/Content"]
+custom_minimum_size = Vector2(0, 450)
+layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("3_chart")
+
+[node name="GoalRow" type="HBoxContainer" parent="MainScroll/Content"]
+layout_mode = 2
+theme_override_constants/separation = 30
+
+[node name="SelectedDayLabel" type="Label" parent="MainScroll/Content"]
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="SelectedDayTable" type="VBoxContainer" parent="MainScroll/Content"]
+layout_mode = 2
+script = ExtResource("4_table")
+
+[node name="PopupLayer" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="PopupPanel" type="PanelContainer" parent="PopupLayer"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -350.0
+offset_top = -125.0
+offset_right = 350.0
+offset_bottom = 125.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="PopupLayer/PopupPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 30
+theme_override_constants/margin_top = 30
+theme_override_constants/margin_right = 30
+theme_override_constants/margin_bottom = 30
+
+[node name="VBox" type="VBoxContainer" parent="PopupLayer/PopupPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 25
+
+[node name="Message" type="Label" parent="PopupLayer/PopupPanel/Margin/VBox"]
+layout_mode = 2
+text = "Ready to be productive again?"
+horizontal_alignment = 1
+
+[node name="CloseButton" type="Button" parent="PopupLayer/PopupPanel/Margin/VBox"]
+layout_mode = 2
+text = "Close"
+
+[node name="BoinkSound" type="Node" parent="."]
+script = ExtResource("5_boink")
+
+[node name="AppControls" type="Node" parent="."]
+
+[node name="Text control" type="Node" parent="AppControls"]
+script = ExtResource("6_text")

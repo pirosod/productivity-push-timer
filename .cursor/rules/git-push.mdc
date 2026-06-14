@@ -1,0 +1,16 @@
+---
+description: Git commit and GitHub push workflow for this project
+alwaysApply: true
+---
+
+# Git and GitHub pushes
+
+When the user asks to **push to git**, **push to GitHub**, or similar:
+
+1. Run `git status` and `git diff` to review changes.
+2. Stage relevant files (not `Productivity data/` — it is gitignored).
+3. Commit using the **exact version title the user provides** as the commit message (e.g. `v0.2 Weekly chart tweaks`).
+4. Push to `origin` on the current branch (`main` unless the user specifies otherwise).
+5. Do not amend or force-push unless the user explicitly requests it.
+
+If there are no changes to commit, say so and do not create an empty commit.

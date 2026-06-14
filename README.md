@@ -30,3 +30,16 @@ User productivity data is not committed to git (see `.gitignore`).
 ## Test shortcut
 
 Press **P** while the app is focused to trigger the idle alert sound and popup.
+
+## Git and GitHub
+
+- Repo: `main` branch, commits use version titles (e.g. `v0.1 First implementation`).
+- After GitHub CLI login, create/push with:
+
+```powershell
+cd "z:\IonStudios\Godot\Productivity push timer"
+gh auth login -h github.com -p https -w
+gh repo create productivity-push-timer --public --source=. --remote=origin --push
+```
+
+Replace `productivity-push-timer` if you use a different repo name on GitHub.

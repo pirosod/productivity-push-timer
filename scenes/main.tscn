@@ -1,19 +1,20 @@
-[gd_scene load_steps=13 format=3 uid="uid://productivity_main"]
+[gd_scene format=3 uid="uid://bk75k4epf4u7i"]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="Script" path="res://scripts/feather_background.gd" id="2_bg"]
-[ext_resource type="Script" path="res://scripts/week_chart.gd" id="3_chart"]
-[ext_resource type="Script" path="res://scripts/session_table.gd" id="4_table"]
-[ext_resource type="Script" path="res://scripts/boink_sound.gd" id="5_boink"]
-[ext_resource type="Script" path="res://scripts/text_control.gd" id="6_text"]
-[ext_resource type="Script" path="res://scripts/today_table_frame.gd" id="7_today_frame"]
-[ext_resource type="Script" path="res://scripts/today_session_chart.gd" id="8_today_chart"]
-[ext_resource type="Script" path="res://scripts/today_vertex_front.gd" id="9_vertex_front"]
-[ext_resource type="Script" path="res://scripts/marker_control.gd" id="10_marker"]
-[ext_resource type="Script" path="res://scripts/today_marker_legend.gd" id="11_marker_legend"]
-[ext_resource type="Script" path="res://scripts/week_summary.gd" id="12_week_summary"]
+[ext_resource type="Script" uid="uid://dtwp7uff1bnbp" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://d0ugydo7yv3p3" path="res://scripts/feather_background.gd" id="2_bg"]
+[ext_resource type="Script" uid="uid://dps36fyf16ygv" path="res://scripts/week_chart.gd" id="3_chart"]
+[ext_resource type="Script" uid="uid://bllrwq6bww3gj" path="res://scripts/session_table.gd" id="4_table"]
+[ext_resource type="Script" uid="uid://cb4uv3ty4jcc4" path="res://scripts/boink_sound.gd" id="5_boink"]
+[ext_resource type="Script" uid="uid://crc6fsvepgti1" path="res://scripts/text_control.gd" id="6_text"]
+[ext_resource type="Script" uid="uid://3xu0rv2todmn" path="res://scripts/today_table_frame.gd" id="7_today_frame"]
+[ext_resource type="Script" uid="uid://bh5bbs40fqf3t" path="res://scripts/today_session_chart.gd" id="8_today_chart"]
+[ext_resource type="Script" uid="uid://le3bl05yb3ji" path="res://scripts/today_vertex_front.gd" id="9_vertex_front"]
+[ext_resource type="Script" uid="uid://de5aidwt2q78d" path="res://scripts/marker_control.gd" id="10_marker"]
+[ext_resource type="Script" uid="uid://dpb7rj7ovvnke" path="res://scripts/today_marker_legend.gd" id="11_marker_legend"]
+[ext_resource type="Script" uid="uid://casy6x0faogv8" path="res://scripts/week_summary.gd" id="12_week_summary"]
+[ext_resource type="Script" uid="uid://bdor8syibwimm" path="res://scripts/visual_tweaks_control.gd" id="13_visual_tweaks"]
 
-[node name="Main" type="Control"]
+[node name="Main" type="Control" unique_id=260254859]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -22,7 +23,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
 
-[node name="FeatherBackground" type="ColorRect" parent="."]
+[node name="FeatherBackground" type="ColorRect" parent="." unique_id=2085759389]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -30,149 +31,168 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(1, 1, 1, 1)
 script = ExtResource("2_bg")
 
-[node name="MainScroll" type="ScrollContainer" parent="."]
+[node name="FixedHeader" type="MarginContainer" parent="." unique_id=1870887351]
+z_index = 1
 layout_mode = 1
-anchors_preset = 15
+anchors_preset = 10
 anchor_right = 1.0
-anchor_bottom = 1.0
 offset_left = 20.0
 offset_top = 20.0
 offset_right = -20.0
-offset_bottom = -20.0
+offset_bottom = 110.0
 grow_horizontal = 2
-grow_vertical = 2
-horizontal_scroll_mode = 0
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 0
 
-[node name="Content" type="VBoxContainer" parent="MainScroll"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 20
-
-[node name="Header" type="HBoxContainer" parent="MainScroll/Content"]
+[node name="Header" type="HBoxContainer" parent="FixedHeader" unique_id=1168628061]
 layout_mode = 2
 theme_override_constants/separation = 20
 
-[node name="PushButton" type="Button" parent="MainScroll/Content/Header"]
+[node name="PushButton" type="Button" parent="FixedHeader/Header" unique_id=945309104]
 custom_minimum_size = Vector2(180, 90)
 layout_mode = 2
 toggle_mode = true
 text = "Push"
 
-[node name="TimerLabel" type="Label" parent="MainScroll/Content/Header"]
+[node name="TimerLabel" type="Label" parent="FixedHeader/Header" unique_id=724030240]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "00:00"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="SnoozeButton" type="Button" parent="MainScroll/Content/Header"]
+[node name="SnoozeButton" type="Button" parent="FixedHeader/Header" unique_id=202015412]
 custom_minimum_size = Vector2(180, 90)
 layout_mode = 2
 text = "Snooze"
 
-[node name="HistoryPast" type="VBoxContainer" parent="MainScroll/Content"]
+[node name="MainScroll" type="ScrollContainer" parent="." unique_id=1943071756]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 120.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="Content" type="VBoxContainer" parent="MainScroll" unique_id=95853441]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 20
+
+[node name="ScrollTopSpacer" type="Control" parent="MainScroll/Content" unique_id=1814590099]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="HistoryPast" type="VBoxContainer" parent="MainScroll/Content" unique_id=11130522]
 visible = false
 layout_mode = 2
 theme_override_constants/separation = 30
 
-[node name="TodaySection" type="VBoxContainer" parent="MainScroll/Content"]
+[node name="TodaySection" type="VBoxContainer" parent="MainScroll/Content" unique_id=769812817]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="TodayHeader" type="Label" parent="MainScroll/Content/TodaySection"]
+[node name="TodayHeader" type="Label" parent="MainScroll/Content/TodaySection" unique_id=1968632885]
 layout_mode = 2
 text = "Today"
 horizontal_alignment = 1
 
-[node name="TodayTableFrame" type="PanelContainer" parent="MainScroll/Content/TodaySection"]
+[node name="TodayTableFrame" type="PanelContainer" parent="MainScroll/Content/TodaySection" unique_id=771902203]
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("7_today_frame")
 
-[node name="Margin" type="MarginContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame"]
+[node name="Margin" type="MarginContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame" unique_id=1873379268]
 layout_mode = 2
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 
-[node name="VBox" type="VBoxContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin"]
+[node name="VBox" type="VBoxContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin" unique_id=950256683]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="HeaderRow" type="HBoxContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox"]
+[node name="HeaderRow" type="HBoxContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox" unique_id=1087378937]
 layout_mode = 2
 
-[node name="TableScroll" type="ScrollContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox"]
+[node name="TableScroll" type="ScrollContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox" unique_id=181355428]
 layout_mode = 2
 size_flags_horizontal = 3
 horizontal_scroll_mode = 0
 
-[node name="ScrollContent" type="Control" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox/TableScroll"]
+[node name="ScrollContent" type="Control" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox/TableScroll" unique_id=684749218]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="TodaySessionChart" type="Control" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox/TableScroll/ScrollContent"]
-layout_mode = 0
+[node name="TodaySessionChart" type="Control" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox/TableScroll/ScrollContent" unique_id=52055185]
+anchors_preset = 0
 mouse_filter = 2
 script = ExtResource("8_today_chart")
 
-[node name="TodayTable" type="VBoxContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox/TableScroll/ScrollContent"]
+[node name="TodayTable" type="VBoxContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox/TableScroll/ScrollContent" unique_id=1822244051]
 layout_mode = 0
 size_flags_horizontal = 3
 mouse_filter = 2
 script = ExtResource("4_table")
 
-[node name="TodayVertexFront" type="Control" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox/TableScroll"]
-layout_mode = 0
-mouse_filter = 2
+[node name="TodayVertexFront" type="Control" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox/TableScroll" unique_id=906644952]
 z_index = 10
+layout_mode = 2
+mouse_filter = 2
 script = ExtResource("9_vertex_front")
 
-[node name="MarkerRow" type="CenterContainer" parent="MainScroll/Content/TodaySection"]
+[node name="MarkerRow" type="CenterContainer" parent="MainScroll/Content/TodaySection" unique_id=1998612920]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="TodayMarkerLegend" type="HBoxContainer" parent="MainScroll/Content/TodaySection/MarkerRow"]
+[node name="TodayMarkerLegend" type="HBoxContainer" parent="MainScroll/Content/TodaySection/MarkerRow" unique_id=1919929996]
 layout_mode = 2
 alignment = 1
 script = ExtResource("11_marker_legend")
 
-[node name="HistoryTab" type="Button" parent="MainScroll/Content"]
+[node name="HistoryTab" type="Button" parent="MainScroll/Content" unique_id=162721290]
 layout_mode = 2
 text = "Show History"
 
-[node name="WeekChart" type="Control" parent="MainScroll/Content"]
+[node name="WeekChart" type="Control" parent="MainScroll/Content" unique_id=575746525]
 custom_minimum_size = Vector2(0, 450)
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("3_chart")
 
-[node name="GoalRow" type="HBoxContainer" parent="MainScroll/Content"]
+[node name="GoalRow" type="HBoxContainer" parent="MainScroll/Content" unique_id=1510142959]
 layout_mode = 2
 theme_override_constants/separation = 30
 
-[node name="WeekSummarySection" type="VBoxContainer" parent="MainScroll/Content"]
+[node name="WeekSummarySection" type="VBoxContainer" parent="MainScroll/Content" unique_id=1561184151]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="WeekSummaryHeader" type="Label" parent="MainScroll/Content/WeekSummarySection"]
+[node name="WeekSummaryHeader" type="Label" parent="MainScroll/Content/WeekSummarySection" unique_id=275344013]
 layout_mode = 2
 text = "Weekly Summary"
 horizontal_alignment = 1
 
-[node name="WeekSummaryTable" type="VBoxContainer" parent="MainScroll/Content/WeekSummarySection"]
+[node name="WeekSummaryTable" type="VBoxContainer" parent="MainScroll/Content/WeekSummarySection" unique_id=1775258513]
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("12_week_summary")
 
-[node name="PopupLayer" type="CanvasLayer" parent="."]
+[node name="PopupLayer" type="CanvasLayer" parent="." unique_id=1550361087]
 layer = 10
 
-[node name="PopupPanel" type="PanelContainer" parent="PopupLayer"]
+[node name="PopupPanel" type="PanelContainer" parent="PopupLayer" unique_id=1281531506]
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -185,27 +205,27 @@ offset_bottom = 125.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Margin" type="MarginContainer" parent="PopupLayer/PopupPanel"]
+[node name="Margin" type="MarginContainer" parent="PopupLayer/PopupPanel" unique_id=420415474]
 layout_mode = 2
 theme_override_constants/margin_left = 30
 theme_override_constants/margin_top = 30
 theme_override_constants/margin_right = 30
 theme_override_constants/margin_bottom = 30
 
-[node name="VBox" type="VBoxContainer" parent="PopupLayer/PopupPanel/Margin"]
+[node name="VBox" type="VBoxContainer" parent="PopupLayer/PopupPanel/Margin" unique_id=1054877945]
 layout_mode = 2
 theme_override_constants/separation = 25
 
-[node name="Message" type="Label" parent="PopupLayer/PopupPanel/Margin/VBox"]
+[node name="Message" type="Label" parent="PopupLayer/PopupPanel/Margin/VBox" unique_id=2055948990]
 layout_mode = 2
 text = "Ready to be productive again?"
 horizontal_alignment = 1
 
-[node name="CloseButton" type="Button" parent="PopupLayer/PopupPanel/Margin/VBox"]
+[node name="CloseButton" type="Button" parent="PopupLayer/PopupPanel/Margin/VBox" unique_id=791412060]
 layout_mode = 2
 text = "Close"
 
-[node name="DeletePopupPanel" type="PanelContainer" parent="PopupLayer"]
+[node name="DeletePopupPanel" type="PanelContainer" parent="PopupLayer" unique_id=1215063347]
 visible = false
 anchors_preset = 8
 anchor_left = 0.5
@@ -219,42 +239,46 @@ offset_bottom = 125.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Margin" type="MarginContainer" parent="PopupLayer/DeletePopupPanel"]
+[node name="Margin" type="MarginContainer" parent="PopupLayer/DeletePopupPanel" unique_id=1784207285]
 layout_mode = 2
 theme_override_constants/margin_left = 30
 theme_override_constants/margin_top = 30
 theme_override_constants/margin_right = 30
 theme_override_constants/margin_bottom = 30
 
-[node name="VBox" type="VBoxContainer" parent="PopupLayer/DeletePopupPanel/Margin"]
+[node name="VBox" type="VBoxContainer" parent="PopupLayer/DeletePopupPanel/Margin" unique_id=1737737086]
 layout_mode = 2
 theme_override_constants/separation = 25
 
-[node name="Message" type="Label" parent="PopupLayer/DeletePopupPanel/Margin/VBox"]
+[node name="Message" type="Label" parent="PopupLayer/DeletePopupPanel/Margin/VBox" unique_id=1892770715]
 layout_mode = 2
 text = "Do you want to delete that entry?"
 horizontal_alignment = 1
 
-[node name="Buttons" type="HBoxContainer" parent="PopupLayer/DeletePopupPanel/Margin/VBox"]
+[node name="Buttons" type="HBoxContainer" parent="PopupLayer/DeletePopupPanel/Margin/VBox" unique_id=1497239572]
 layout_mode = 2
 theme_override_constants/separation = 20
 alignment = 1
 
-[node name="YesButton" type="Button" parent="PopupLayer/DeletePopupPanel/Margin/VBox/Buttons"]
+[node name="YesButton" type="Button" parent="PopupLayer/DeletePopupPanel/Margin/VBox/Buttons" unique_id=813410312]
 layout_mode = 2
 text = "Yes"
 
-[node name="NoButton" type="Button" parent="PopupLayer/DeletePopupPanel/Margin/VBox/Buttons"]
+[node name="NoButton" type="Button" parent="PopupLayer/DeletePopupPanel/Margin/VBox/Buttons" unique_id=1773612833]
 layout_mode = 2
 text = "No"
 
-[node name="BoinkSound" type="Node" parent="."]
+[node name="BoinkSound" type="Node" parent="." unique_id=35522466]
 script = ExtResource("5_boink")
 
-[node name="AppControls" type="Node" parent="."]
+[node name="AppControls" type="Node" parent="." unique_id=1748393158]
 
-[node name="Text control" type="Node" parent="AppControls"]
+[node name="Text control" type="Node" parent="AppControls" unique_id=1711226893]
 script = ExtResource("6_text")
 
-[node name="Marker control" type="Node" parent="AppControls"]
+[node name="Marker control" type="Node" parent="AppControls" unique_id=719870665]
 script = ExtResource("10_marker")
+
+[node name="Visual tweaks" type="Node" parent="AppControls" unique_id=217508550]
+script = ExtResource("13_visual_tweaks")
+scroll_top_spacing = 8.0

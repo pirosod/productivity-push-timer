@@ -12,7 +12,7 @@ static func build(
 	var logged_list: Array = ProductivityData.get_session_minutes_list_for_day(day_key, include_live)
 	var color_minutes_list: Array = ProductivityData.get_session_cumulative_list_for_day(day_key, include_live)
 	var max_minutes := TodayChartStyle.scale_max_minutes(logged_list)
-	var plot_rect := TodayChartStyle.plot_rect_for_size(chart_size)
+	var plot_rect := TodayChartStyle.plot_rect_for_today_table(chart_size)
 	var row_centers: Array = []
 	var points: Array = []
 	var colors: Array = []

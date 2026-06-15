@@ -2,13 +2,18 @@ extends Control
 
 const IDLE_INTERVAL_SECONDS := 20.0 * 60.0
 const SNOOZE_SECONDS := 60.0 * 60.0
+const SCROLL_SIDE_MARGIN := 20.0
+const SCROLL_BOTTOM_MARGIN := 20.0
+const SCROLL_GAP_BELOW_HEADER := 10.0
 
 @onready var _background: ColorRect = $FeatherBackground
+@onready var _fixed_header: MarginContainer = $FixedHeader
 @onready var _main_scroll: ScrollContainer = $MainScroll
 @onready var _content: VBoxContainer = $MainScroll/Content
-@onready var _push_button: Button = $MainScroll/Content/Header/PushButton
-@onready var _timer_label: Label = $MainScroll/Content/Header/TimerLabel
-@onready var _snooze_button: Button = $MainScroll/Content/Header/SnoozeButton
+@onready var _scroll_top_spacer: Control = $MainScroll/Content/ScrollTopSpacer
+@onready var _push_button: Button = $FixedHeader/Header/PushButton
+@onready var _timer_label: Label = $FixedHeader/Header/TimerLabel
+@onready var _snooze_button: Button = $FixedHeader/Header/SnoozeButton
 @onready var _history_past: VBoxContainer = $MainScroll/Content/HistoryPast
 @onready var _today_table_frame = $MainScroll/Content/TodaySection/TodayTableFrame
 @onready var _today_marker_legend: TodayMarkerLegend = (
@@ -27,6 +32,7 @@ const SNOOZE_SECONDS := 60.0 * 60.0
 @onready var _boink: Node = $BoinkSound
 @onready var _text_control: TextControl = $"AppControls/Text control"
 @onready var _marker_control: MarkerControl = $"AppControls/Marker control"
+@onready var _visual_tweaks = $"AppControls/Visual tweaks"
 @onready var _today_header: Label = $MainScroll/Content/TodaySection/TodayHeader
 @onready var _popup_message: Label = $PopupLayer/PopupPanel/Margin/VBox/Message
 @onready var _delete_popup_panel: PanelContainer = $PopupLayer/DeletePopupPanel
@@ -45,6 +51,7 @@ var _closing := false
 var _pending_delete_day_key := ""
 var _pending_delete_index := -1
 var _last_summary_refresh_minute := -1
+var _main_layout_ready := false
 
 
 func _ready() -> void:
@@ -59,6 +66,7 @@ func _ready() -> void:
 	_week_chart.day_selected.connect(_on_chart_day_selected)
 	_text_control.sizes_changed.connect(_on_text_sizes_changed)
 	_marker_control.sizes_changed.connect(_on_marker_sizes_changed)
+	_visual_tweaks.tweaks_changed.connect(_sync_main_layout)
 	_setup_goal_pickers()
 	_timer_label.add_theme_font_size_override("font_size", _text_control.timer_font_size())
 	_popup_layer.visible = false
@@ -66,8 +74,39 @@ func _ready() -> void:
 	_delete_popup_panel.visible = false
 	_history_past.visible = false
 	_connect_window_close()
+	_fixed_header.resized.connect(_sync_main_layout)
+	_main_layout_ready = true
+	_sync_main_layout()
 	_refresh_ui()
 	call_deferred("_scroll_to_today")
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_sync_main_layout()
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_on_window_close_requested()
+
+
+func _sync_main_layout() -> void:
+	if not _main_layout_ready:
+		return
+	if not is_instance_valid(_scroll_top_spacer) or not is_instance_valid(_fixed_header):
+		return
+	if not is_instance_valid(_main_scroll):
+		return
+	_scroll_top_spacer.custom_minimum_size.y = _scroll_top_spacing_px()
+	var header_bottom := _fixed_header.position.y + _fixed_header.size.y
+	_main_scroll.offset_left = SCROLL_SIDE_MARGIN
+	_main_scroll.offset_top = header_bottom + UiScale.scale(SCROLL_GAP_BELOW_HEADER)
+	_main_scroll.offset_right = -SCROLL_SIDE_MARGIN
+	_main_scroll.offset_bottom = -SCROLL_BOTTOM_MARGIN
+
+
+func _scroll_top_spacing_px() -> float:
+	if is_instance_valid(_visual_tweaks):
+		return _visual_tweaks.scroll_top_spacing_px()
+	return UiScale.scale(16.0)
 
 
 func _connect_window_close() -> void:
@@ -83,11 +122,6 @@ func _on_window_close_requested() -> void:
 	_save_window_settings()
 	ProductivityData.save_data()
 	get_tree().quit()
-
-
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		_on_window_close_requested()
 
 
 func _process(_delta: float) -> void:
@@ -210,6 +244,7 @@ func _on_history_tab_pressed() -> void:
 
 
 func _on_text_sizes_changed() -> void:
+	_sync_main_layout()
 	_refresh_ui()
 
 

@@ -66,6 +66,16 @@ static func plot_rect_for_size(chart_size: Vector2) -> Rect2:
 	)
 
 
+static func plot_rect_for_today_table(chart_size: Vector2) -> Rect2:
+	var left := plot_nudge_x()
+	return Rect2(
+		left,
+		0.0,
+		maxf(chart_size.x - left, 1.0),
+		chart_size.y
+	)
+
+
 static func marker_color(index: int) -> Color:
 	match index:
 		0:

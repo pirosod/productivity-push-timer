@@ -36,12 +36,10 @@ func _draw() -> void:
 	var max_minutes: int = layout["max_minutes"]
 	var points: Array = layout["points"]
 	_draw_goal_bands(plot_rect, max_minutes)
-	_draw_hour_grid(plot_rect, max_minutes)
 	_draw_area_fill(plot_rect, points)
 	_draw_connectors(points)
 	_draw_large_dots(points, layout["colors"])
 	_draw_average_markers(plot_rect, max_minutes)
-	_draw_y_axis(plot_rect, max_minutes)
 
 
 func _draw_goal_bands(plot_rect: Rect2, max_minutes: int) -> void:
@@ -59,39 +57,6 @@ func _draw_goal_bands(plot_rect: Rect2, max_minutes: int) -> void:
 			y_bottom - y_top
 		)
 		draw_rect(rect, TodayChartStyle.band_color(band["color"]))
-
-
-func _draw_hour_grid(plot_rect: Rect2, max_minutes: int) -> void:
-	var grid_color := TodayChartStyle.grid_color()
-	var max_hour := int(ceil(float(max_minutes) / 60.0))
-	for hour in max_hour + 1:
-		var y := TodayChartStyle.minutes_to_y(float(hour * 60), plot_rect, max_minutes)
-		draw_line(
-			Vector2(plot_rect.position.x, y),
-			Vector2(plot_rect.position.x + plot_rect.size.x, y),
-			grid_color,
-			1.0
-		)
-
-
-func _draw_y_axis(plot_rect: Rect2, max_minutes: int) -> void:
-	var font := ThemeDB.fallback_font
-	var font_size := UiScale.scale_i(11)
-	var color := TodayChartStyle.axis_text_color()
-	var labels: Array = TodayChartStyle.hour_labels(max_minutes)
-	for hour in labels.size():
-		var y := TodayChartStyle.minutes_to_y(float(hour * 60), plot_rect, max_minutes)
-		var label := str(labels[hour])
-		var text_size := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
-		draw_string(
-			font,
-			Vector2(plot_rect.position.x - text_size.x - UiScale.scale(4.0), y + text_size.y * 0.35),
-			label,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			-1,
-			font_size,
-			color
-		)
 
 
 func _draw_area_fill(plot_rect: Rect2, points: Array) -> void:

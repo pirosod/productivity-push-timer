@@ -3,6 +3,10 @@ extends Node
 const DATA_FOLDER_NAME := "Productivity data"
 const DATA_FILE_NAME := "productivity.json"
 const VERSION := 1
+const DEFAULT_WINDOW_WIDTH := 1110
+const DEFAULT_WINDOW_HEIGHT := 1450
+const LEGACY_WINDOW_WIDTH := 950
+const LEGACY_WINDOW_HEIGHT := 1250
 
 var low_goal_hours: float = 2.0
 var medium_goal_hours: float = 4.0
@@ -162,7 +166,7 @@ func end_session() -> void:
 	if not is_session_active():
 		return
 	var end_unix := int(Time.get_unix_time_from_system())
-	var segments := TimeUtils.split_session_at_day_boundaries(_session_start_unix, end_unix)
+	var segments: Array = TimeUtils.split_session_at_day_boundaries(_session_start_unix, end_unix)
 	_session_start_unix = -1
 	for segment in segments:
 		_add_session_segment(segment)
@@ -181,7 +185,7 @@ func get_live_minutes_for_day(day_key: String) -> int:
 	var total := get_day_total_minutes(day_key)
 	if is_session_active():
 		var now := int(Time.get_unix_time_from_system())
-		var segments := TimeUtils.split_session_at_day_boundaries(_session_start_unix, now)
+		var segments: Array = TimeUtils.split_session_at_day_boundaries(_session_start_unix, now)
 		for segment in segments:
 			if segment.get("day_key", "") == day_key:
 				total += int(segment.get("minutes", 0))
@@ -195,6 +199,95 @@ func get_day_total_minutes(day_key: String) -> int:
 func get_sessions_for_day(day_key: String) -> Array:
 	var stored: Array = _sessions.get(day_key, [])
 	return stored.duplicate(true)
+
+
+func get_session_minutes_list_for_day(day_key: String, include_live: bool) -> Array:
+	var minutes_list: Array = []
+	for session in get_sessions_for_day(day_key):
+		minutes_list.append(int(session.get("minutes", 0)))
+	if include_live and is_session_active():
+		if TimeUtils.get_productivity_day_key_now() == day_key:
+			var now := int(Time.get_unix_time_from_system())
+			var live_minutes := float(now - _session_start_unix) / 60.0
+			minutes_list.append(live_minutes)
+	return minutes_list
+
+
+func get_session_cumulative_list_for_day(day_key: String, include_live: bool) -> Array:
+	var cumulative_list: Array = []
+	for session in get_sessions_for_day(day_key):
+		cumulative_list.append(int(session.get("cumulative_minutes", 0)))
+	if include_live and is_session_active():
+		if TimeUtils.get_productivity_day_key_now() == day_key:
+			cumulative_list.append(get_live_minutes_for_day(day_key))
+	return cumulative_list
+
+
+func get_average_session_minutes_from_list(minutes_list: Array) -> float:
+	if minutes_list.is_empty():
+		return 0.0
+	var total := 0
+	for value in minutes_list:
+		total += int(value)
+	return float(total) / float(minutes_list.size())
+
+
+func get_today_average_session_minutes(day_key: String, include_live: bool) -> float:
+	return get_average_session_minutes_from_list(
+		get_session_minutes_list_for_day(day_key, include_live)
+	)
+
+
+func get_week_session_minutes_list() -> Array:
+	var day_keys: Array = TimeUtils.get_last_n_productivity_days(7)
+	var today_key := TimeUtils.get_productivity_day_key_now()
+	var all_minutes: Array = []
+	for day_key in day_keys:
+		var include_live: bool = is_session_active() and str(day_key) == today_key
+		for minutes in get_session_minutes_list_for_day(str(day_key), include_live):
+			all_minutes.append(minutes)
+	return all_minutes
+
+
+func get_overall_session_minutes_list() -> Array:
+	var all_minutes: Array = []
+	for day_key in _sessions.keys():
+		for session in _sessions[day_key]:
+			all_minutes.append(int(session.get("minutes", 0)))
+	if is_session_active():
+		all_minutes.append(get_live_session_minutes())
+	return all_minutes
+
+
+func delete_session(day_key: String, session_index: int) -> bool:
+	if not _sessions.has(day_key):
+		return false
+	var day_sessions: Array = _sessions[day_key]
+	if session_index < 0 or session_index >= day_sessions.size():
+		return false
+	day_sessions.remove_at(session_index)
+	if day_sessions.is_empty():
+		_sessions.erase(day_key)
+		_daily_totals.erase(day_key)
+	else:
+		_sessions[day_key] = day_sessions
+		_recompute_day_totals(day_key)
+	_mark_dirty()
+	save_data()
+	return true
+
+
+func _recompute_day_totals(day_key: String) -> void:
+	if not _sessions.has(day_key):
+		_daily_totals.erase(day_key)
+		return
+	var cumulative := 0
+	var day_sessions: Array = _sessions[day_key]
+	for session in day_sessions:
+		cumulative += int(session.get("minutes", 0))
+		session["cumulative_minutes"] = cumulative
+	_daily_totals[day_key] = cumulative
+	_sessions[day_key] = day_sessions
 
 
 func get_all_day_keys_sorted() -> Array:
@@ -212,8 +305,8 @@ func get_window_settings() -> Dictionary:
 	return {
 		"x": int(_settings_get("window_x", 100)),
 		"y": int(_settings_get("window_y", 100)),
-		"width": int(_settings_get("window_width", UiScale.scale_i(380))),
-		"height": int(_settings_get("window_height", UiScale.scale_i(420))),
+		"width": int(_settings_get("window_width", DEFAULT_WINDOW_WIDTH)),
+		"height": int(_settings_get("window_height", DEFAULT_WINDOW_HEIGHT)),
 	}
 
 

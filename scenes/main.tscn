@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3 uid="uid://productivity_main"]
+[gd_scene load_steps=12 format=3 uid="uid://productivity_main"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/feather_background.gd" id="2_bg"]
@@ -6,6 +6,11 @@
 [ext_resource type="Script" path="res://scripts/session_table.gd" id="4_table"]
 [ext_resource type="Script" path="res://scripts/boink_sound.gd" id="5_boink"]
 [ext_resource type="Script" path="res://scripts/text_control.gd" id="6_text"]
+[ext_resource type="Script" path="res://scripts/today_table_frame.gd" id="7_today_frame"]
+[ext_resource type="Script" path="res://scripts/today_session_chart.gd" id="8_today_chart"]
+[ext_resource type="Script" path="res://scripts/today_vertex_front.gd" id="9_vertex_front"]
+[ext_resource type="Script" path="res://scripts/marker_control.gd" id="10_marker"]
+[ext_resource type="Script" path="res://scripts/today_marker_legend.gd" id="11_marker_legend"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -81,9 +86,59 @@ layout_mode = 2
 text = "Today"
 horizontal_alignment = 1
 
-[node name="TodayTable" type="VBoxContainer" parent="MainScroll/Content/TodaySection"]
+[node name="TodayTableFrame" type="PanelContainer" parent="MainScroll/Content/TodaySection"]
 layout_mode = 2
+size_flags_horizontal = 3
+script = ExtResource("7_today_frame")
+
+[node name="Margin" type="MarginContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="VBox" type="VBoxContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="HeaderRow" type="HBoxContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox"]
+layout_mode = 2
+
+[node name="TableScroll" type="ScrollContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_scroll_mode = 0
+
+[node name="ScrollContent" type="Control" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox/TableScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TodaySessionChart" type="Control" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox/TableScroll/ScrollContent"]
+layout_mode = 0
+mouse_filter = 2
+script = ExtResource("8_today_chart")
+
+[node name="TodayTable" type="VBoxContainer" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox/TableScroll/ScrollContent"]
+layout_mode = 0
+size_flags_horizontal = 3
+mouse_filter = 2
 script = ExtResource("4_table")
+
+[node name="TodayVertexFront" type="Control" parent="MainScroll/Content/TodaySection/TodayTableFrame/Margin/VBox/TableScroll"]
+layout_mode = 0
+mouse_filter = 2
+z_index = 10
+script = ExtResource("9_vertex_front")
+
+[node name="MarkerRow" type="CenterContainer" parent="MainScroll/Content/TodaySection"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TodayMarkerLegend" type="HBoxContainer" parent="MainScroll/Content/TodaySection/MarkerRow"]
+layout_mode = 2
+alignment = 1
+script = ExtResource("11_marker_legend")
 
 [node name="HistoryTab" type="Button" parent="MainScroll/Content"]
 layout_mode = 2
@@ -143,6 +198,49 @@ horizontal_alignment = 1
 layout_mode = 2
 text = "Close"
 
+[node name="DeletePopupPanel" type="PanelContainer" parent="PopupLayer"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -350.0
+offset_top = -125.0
+offset_right = 350.0
+offset_bottom = 125.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="PopupLayer/DeletePopupPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 30
+theme_override_constants/margin_top = 30
+theme_override_constants/margin_right = 30
+theme_override_constants/margin_bottom = 30
+
+[node name="VBox" type="VBoxContainer" parent="PopupLayer/DeletePopupPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 25
+
+[node name="Message" type="Label" parent="PopupLayer/DeletePopupPanel/Margin/VBox"]
+layout_mode = 2
+text = "Do you want to delete that entry?"
+horizontal_alignment = 1
+
+[node name="Buttons" type="HBoxContainer" parent="PopupLayer/DeletePopupPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="YesButton" type="Button" parent="PopupLayer/DeletePopupPanel/Margin/VBox/Buttons"]
+layout_mode = 2
+text = "Yes"
+
+[node name="NoButton" type="Button" parent="PopupLayer/DeletePopupPanel/Margin/VBox/Buttons"]
+layout_mode = 2
+text = "No"
+
 [node name="BoinkSound" type="Node" parent="."]
 script = ExtResource("5_boink")
 
@@ -150,3 +248,6 @@ script = ExtResource("5_boink")
 
 [node name="Text control" type="Node" parent="AppControls"]
 script = ExtResource("6_text")
+
+[node name="Marker control" type="Node" parent="AppControls"]
+script = ExtResource("10_marker")

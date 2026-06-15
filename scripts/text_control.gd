@@ -17,7 +17,7 @@ signal sizes_changed
 @export var history_day_header_size: int = 16
 
 @export_group("Week Chart")
-@export var week_chart_day_label_size: int = 11
+@export var week_chart_day_label_size: int = 8
 
 @export_group("Selected Day")
 @export var selected_day_label_size: int = 16

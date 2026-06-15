@@ -9,7 +9,7 @@ func _draw() -> void:
 	var bands := 28
 	for i in bands:
 		var t := float(i) / float(bands)
-		var alpha := (1.0 - t) * 0.22
+		var alpha := (1.0 - t) * 0.11
 		var margin := t * minf(size.x, size.y) * 0.5
 		var thickness := UiScale.scale(2.0)
 		var top := Rect2(0, margin, size.x, thickness)

@@ -26,8 +26,8 @@ UiScale="*res://scripts/ui_scale.gd"
 
 [display]
 
-window/size/viewport_width=950
-window/size/viewport_height=1050
+window/size/viewport_width=1110
+window/size/viewport_height=1450
 window/stretch/mode="canvas_items"
 
 [global_script_classes]
@@ -40,6 +40,14 @@ list=[{
 "is_tool": false,
 "language": &"GDScript",
 "path": "res://scripts/session_table.gd"
+}, {
+"base": &"Control",
+"class": &"SessionRow",
+"icon": "",
+"is_abstract": false,
+"is_tool": false,
+"language": &"GDScript",
+"path": "res://scripts/session_row.gd"
 }, {
 "base": &"Node",
 "class": &"TextControl",

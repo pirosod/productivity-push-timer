@@ -7,6 +7,10 @@ const OFFSET_DST := 10 * 3600 + 30 * 60
 const TIMEZONE_NAME := "Adelaide, South Australia"
 
 
+static func idiv(a: int, b: int) -> int:
+	return int(a / b)
+
+
 static func get_productivity_day_key(unix: int) -> String:
 	var dt := unix_to_adelaide(unix)
 	if dt.hour < DAY_START_HOUR:
@@ -86,6 +90,13 @@ static func format_minutes_hm(minutes: int) -> String:
 	var hours := minutes / 60
 	var mins := minutes % 60
 	return "%02d:%02d" % [hours, mins]
+
+
+static func format_minutes_hm_compact(minutes: float) -> String:
+	var total := int(floor(minutes))
+	var hours := total / 60
+	var mins := total % 60
+	return "%d:%02d" % [hours, mins]
 
 
 static func format_time(unix: int) -> String:
@@ -216,21 +227,21 @@ static func adelaide_datetime_matches(unix: int, dt: Dictionary) -> bool:
 
 
 static func unix_to_datetime_dict(unix: int) -> Dictionary:
-	var days: int = unix / 86400
+	var days: int = idiv(unix, 86400)
 	var rem: int = unix % 86400
 	if rem < 0:
 		rem += 86400
 		days -= 1
 	var z: int = days + 719468
-	var era: int = z / 146097
+	var era: int = idiv(z, 146097)
 	if z < 0:
-		era = (z - 146096) / 146097
+		era = idiv(z - 146096, 146097)
 	var doe: int = z - era * 146097
-	var yoe: int = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365
+	var yoe: int = idiv(doe - idiv(doe, 1460) + idiv(doe, 36524) - idiv(doe, 146096), 365)
 	var y: int = yoe + era * 400
-	var doy: int = doe - (365 * yoe + yoe / 4 - yoe / 100)
-	var mp: int = (5 * doy + 2) / 153
-	var d: int = doy - (153 * mp + 2) / 5 + 1
+	var doy: int = doe - (365 * yoe + idiv(yoe, 4) - idiv(yoe, 100))
+	var mp: int = idiv(5 * doy + 2, 153)
+	var d: int = doy - idiv(153 * mp + 2, 5) + 1
 	var m: int = mp + 3 if mp < 10 else mp - 9
 	if mp < 10:
 		y += 1
@@ -238,23 +249,24 @@ static func unix_to_datetime_dict(unix: int) -> Dictionary:
 		"year": y,
 		"month": m,
 		"day": d,
-		"hour": rem / 3600,
-		"minute": (rem % 3600) / 60,
+		"hour": idiv(rem, 3600),
+		"minute": idiv(rem % 3600, 60),
 		"second": rem % 60,
 		"weekday": weekday_from_calendar_date(y, m, d),
 	}
 
 
 static func weekday_from_calendar_date(year: int, month: int, day: int) -> int:
-	var noon_unix: int = datetime_to_unix_utc({
-		"year": year,
-		"month": month,
-		"day": day,
-		"hour": 12,
-		"minute": 0,
-		"second": 0,
-	})
-	return (noon_unix / 86400 + 4) % 7
+	# Sakamoto's algorithm — 0 = Sunday … 6 = Saturday
+	var y := year
+	var m := month
+	if m < 3:
+		m += 12
+		y -= 1
+	var k := y % 100
+	var j := idiv(y, 100)
+	var h := (day + idiv(13 * (m + 1), 5) + k + idiv(k, 4) + idiv(j, 4) - 2 * j) % 7
+	return (h + 6) % 7
 
 
 static func datetime_to_unix_utc(dt: Dictionary) -> int:
@@ -265,10 +277,10 @@ static func datetime_to_unix_utc(dt: Dictionary) -> int:
 	else:
 		month += 9
 		year -= 1
-	var era: int = year / 400
+	var era: int = idiv(year, 400)
 	var yoe: int = year - era * 400
-	var doy: int = (153 * month + 2) / 5 + dt.day - 1
-	var doe: int = yoe * 365 + yoe / 4 - yoe / 100 + doy
+	var doy: int = idiv(153 * month + 2, 5) + dt.day - 1
+	var doe: int = yoe * 365 + idiv(yoe, 4) - idiv(yoe, 100) + doy
 	var days: int = era * 146097 + doe - 719468
 	return days * 86400 + dt.hour * 3600 + dt.minute * 60 + dt.second
 

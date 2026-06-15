@@ -22,6 +22,7 @@ var _snap_timer: float = 0.0
 var _snap_tween: Tween
 var _current_day_key: String = ""
 var _include_live: bool = false
+var _scroll_to_latest_pending: bool = false
 
 
 func _ready() -> void:
@@ -63,14 +64,28 @@ func get_session_table() -> SessionTable:
 	return _table
 
 
-func build_for_day(day_key: String, include_active: bool = false) -> void:
+func build_for_day(day_key: String, include_active: bool = false, scroll_to_latest: bool = false) -> void:
 	_current_day_key = day_key
 	_include_live = include_active
+	_scroll_to_latest_pending = scroll_to_latest
 	_reset_rubber()
 	_table.build_header_row(_header_row)
 	_table.build_today_body(day_key, include_active)
-	call_deferred("_sync_layer_sizes")
-	call_deferred("_sync_scroll_content_position")
+	call_deferred("_finish_build_layout")
+
+
+func _finish_build_layout() -> void:
+	_sync_layer_sizes()
+	if _scroll_to_latest_pending:
+		_scroll_to_latest_pending = false
+		call_deferred("_scroll_to_latest")
+
+
+func _scroll_to_latest() -> void:
+	var bar := _scroll.get_v_scroll_bar()
+	_scroll.scroll_vertical = int(bar.max_value)
+	_rubber_offset = 0.0
+	_sync_scroll_content_position()
 
 
 func refresh_appearance() -> void:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://productivity_main"]
+[gd_scene load_steps=13 format=3 uid="uid://productivity_main"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/feather_background.gd" id="2_bg"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scripts/today_vertex_front.gd" id="9_vertex_front"]
 [ext_resource type="Script" path="res://scripts/marker_control.gd" id="10_marker"]
 [ext_resource type="Script" path="res://scripts/today_marker_legend.gd" id="11_marker_legend"]
+[ext_resource type="Script" path="res://scripts/week_summary.gd" id="12_week_summary"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -154,13 +155,19 @@ script = ExtResource("3_chart")
 layout_mode = 2
 theme_override_constants/separation = 30
 
-[node name="SelectedDayLabel" type="Label" parent="MainScroll/Content"]
+[node name="WeekSummarySection" type="VBoxContainer" parent="MainScroll/Content"]
 layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="WeekSummaryHeader" type="Label" parent="MainScroll/Content/WeekSummarySection"]
+layout_mode = 2
+text = "Weekly Summary"
 horizontal_alignment = 1
 
-[node name="SelectedDayTable" type="VBoxContainer" parent="MainScroll/Content"]
+[node name="WeekSummaryTable" type="VBoxContainer" parent="MainScroll/Content/WeekSummarySection"]
 layout_mode = 2
-script = ExtResource("4_table")
+size_flags_horizontal = 3
+script = ExtResource("12_week_summary")
 
 [node name="PopupLayer" type="CanvasLayer" parent="."]
 layer = 10

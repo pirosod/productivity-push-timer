@@ -16,9 +16,11 @@ const SNOOZE_SECONDS := 60.0 * 60.0
 )
 @onready var _history_tab: Button = $MainScroll/Content/HistoryTab
 @onready var _week_chart: Control = $MainScroll/Content/WeekChart
+@onready var _week_summary_header: Label = $MainScroll/Content/WeekSummarySection/WeekSummaryHeader
+@onready var _week_summary_table: WeekSummaryTable = (
+	$MainScroll/Content/WeekSummarySection/WeekSummaryTable
+)
 @onready var _goal_row: HBoxContainer = $MainScroll/Content/GoalRow
-@onready var _selected_day_label: Label = $MainScroll/Content/SelectedDayLabel
-@onready var _selected_day_table: VBoxContainer = $MainScroll/Content/SelectedDayTable
 @onready var _popup_layer: CanvasLayer = $PopupLayer
 @onready var _popup_panel: PanelContainer = $PopupLayer/PopupPanel
 @onready var _popup_close: Button = $PopupLayer/PopupPanel/Margin/VBox/CloseButton
@@ -42,6 +44,7 @@ var _selected_chart_day := ""
 var _closing := false
 var _pending_delete_day_key := ""
 var _pending_delete_index := -1
+var _last_summary_refresh_minute := -1
 
 
 func _ready() -> void:
@@ -53,7 +56,6 @@ func _ready() -> void:
 	_delete_yes_button.pressed.connect(_on_delete_yes_pressed)
 	_delete_no_button.pressed.connect(_on_delete_no_pressed)
 	_today_table_frame.session_delete_requested.connect(_on_session_delete_requested)
-	_selected_day_table.session_delete_requested.connect(_on_session_delete_requested)
 	_week_chart.day_selected.connect(_on_chart_day_selected)
 	_text_control.sizes_changed.connect(_on_text_sizes_changed)
 	_marker_control.sizes_changed.connect(_on_marker_sizes_changed)
@@ -92,7 +94,10 @@ func _process(_delta: float) -> void:
 	if ProductivityData.is_session_active():
 		_update_timer_label()
 		_refresh_today_table()
-		_refresh_selected_day_table()
+		var live_minute := ProductivityData.get_live_session_minutes()
+		if live_minute != _last_summary_refresh_minute:
+			_last_summary_refresh_minute = live_minute
+			_refresh_week_summary()
 		_week_chart.queue_redraw()
 	elif _idle_paused:
 		pass
@@ -214,7 +219,7 @@ func _on_marker_sizes_changed() -> void:
 
 func _on_chart_day_selected(day_key: String) -> void:
 	_selected_chart_day = day_key
-	_refresh_selected_day_table()
+	_week_chart.set_selected_day(day_key)
 
 
 func _update_idle_timer(delta: float) -> void:
@@ -301,14 +306,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _refresh_ui() -> void:
 	_update_timer_label()
-	_refresh_today_table()
+	_refresh_today_table(true)
 	_build_history_past_if_needed()
 	_week_chart.refresh()
 	if _selected_chart_day.is_empty():
 		_selected_chart_day = TimeUtils.get_productivity_day_key_now()
 	_week_chart.set_selected_day(_selected_chart_day)
-	_refresh_selected_day_table()
 	_apply_theme_mode()
+	_refresh_week_summary()
 
 
 func _apply_theme_mode() -> void:
@@ -326,10 +331,8 @@ func _apply_theme_mode() -> void:
 	_timer_label.add_theme_font_size_override("font_size", _text_control.timer_font_size())
 	_today_header.add_theme_color_override("font_color", text_color)
 	_today_header.add_theme_font_size_override("font_size", _text_control.today_header_font_size())
-	_selected_day_label.add_theme_color_override("font_color", text_color)
-	_selected_day_label.add_theme_font_size_override(
-		"font_size", _text_control.selected_day_label_font_size()
-	)
+	_week_summary_header.add_theme_color_override("font_color", text_color)
+	_week_summary_header.add_theme_font_size_override("font_size", _text_control.today_header_font_size())
 	_popup_message.add_theme_color_override("font_color", text_color)
 	_popup_message.add_theme_font_size_override("font_size", _text_control.popup_message_font_size())
 	_delete_popup_message.add_theme_color_override("font_color", text_color)
@@ -379,18 +382,14 @@ func _update_timer_label() -> void:
 		_timer_label.text = "00:00"
 
 
-func _refresh_today_table() -> void:
+func _refresh_today_table(scroll_to_latest: bool = false) -> void:
 	var today_key := TimeUtils.get_productivity_day_key_now()
-	_today_table_frame.build_for_day(today_key, true)
+	_today_table_frame.build_for_day(today_key, true, scroll_to_latest)
 	_today_marker_legend.configure(today_key, true)
 
 
-func _refresh_selected_day_table() -> void:
-	if _selected_chart_day.is_empty():
-		_selected_chart_day = TimeUtils.get_productivity_day_key_now()
-	_selected_day_label.text = TimeUtils.format_day_label(_selected_chart_day)
-	var is_today := _selected_chart_day == TimeUtils.get_productivity_day_key_now()
-	_selected_day_table.build_for_day(_selected_chart_day, is_today)
+func _refresh_week_summary() -> void:
+	_week_summary_table.refresh()
 
 
 func _build_history_past_if_needed() -> void:

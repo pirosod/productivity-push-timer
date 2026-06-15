@@ -13,6 +13,7 @@ var _day_keys: Array = []
 var _selected_day_key: String = ""
 var _label_buttons: Array[Button] = []
 var _last_live_minute: int = -1
+var _label_layout_signature: String = ""
 
 
 func _ready() -> void:
@@ -36,7 +37,10 @@ func _notification(what: int) -> void:
 
 
 func refresh() -> void:
-	_day_keys = TimeUtils.get_last_n_productivity_days(7)
+	var new_day_keys: Array = TimeUtils.get_last_n_productivity_days(7)
+	if new_day_keys != _day_keys:
+		_label_layout_signature = ""
+	_day_keys = new_day_keys
 	if _selected_day_key.is_empty() and not _day_keys.is_empty():
 		_selected_day_key = _day_keys[-1]
 	_last_live_minute = -1
@@ -50,48 +54,78 @@ func set_selected_day(day_key: String) -> void:
 
 
 func _rebuild_label_buttons() -> void:
-	_clear_label_buttons()
 	if _day_keys.is_empty() or size.x <= 1.0:
+		_clear_label_buttons()
 		return
 	var chart_rect := _get_chart_rect()
 	var plot_rect := _get_plot_rect(chart_rect)
 	var box_width := _get_box_width(plot_rect)
+	var signature := _build_label_layout_signature(plot_rect, box_width)
+	if signature == _label_layout_signature and not _label_buttons.is_empty():
+		_apply_label_button_layout(plot_rect, box_width)
+		apply_label_theme()
+		return
+	_label_layout_signature = signature
+	_clear_label_buttons()
 	for i in _day_keys.size():
 		var day_key: String = _day_keys[i]
 		var button := Button.new()
 		button.text = TimeUtils.format_day_label(day_key)
 		button.flat = true
 		button.focus_mode = Control.FOCUS_NONE
+		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button.position = Vector2(
 			plot_rect.position.x + i * (box_width + BOX_GAP),
 			0
 		)
 		button.size = Vector2(box_width, LABEL_HEIGHT)
-		button.add_theme_font_size_override("font_size", _day_label_font_size())
 		button.pressed.connect(_on_day_pressed.bind(day_key))
 		add_child(button)
 		_label_buttons.append(button)
+	_apply_label_button_layout(plot_rect, box_width)
 	apply_label_theme()
+
+
+func _build_label_layout_signature(plot_rect: Rect2, box_width: float) -> String:
+	return "%s|%s|%.2f|%.2f" % [
+		"|".join(_day_keys),
+		_selected_day_key,
+		plot_rect.position.x,
+		box_width,
+	]
+
+
+func _apply_label_button_layout(plot_rect: Rect2, box_width: float) -> void:
+	for i in _label_buttons.size():
+		if i >= _day_keys.size():
+			break
+		var button: Button = _label_buttons[i]
+		button.position = Vector2(
+			plot_rect.position.x + i * (box_width + BOX_GAP),
+			0
+		)
+		button.size = Vector2(box_width, LABEL_HEIGHT)
 
 
 func _clear_label_buttons() -> void:
 	for button in _label_buttons:
 		if is_instance_valid(button):
-			button.queue_free()
+			remove_child(button)
+			button.free()
 	_label_buttons.clear()
-	for child in get_children():
-		if child is Button:
-			child.queue_free()
 
 
 func apply_label_theme() -> void:
 	var text_color := UiScale.text_color()
 	var font_size := _day_label_font_size()
 	for button in _label_buttons:
+		if not is_instance_valid(button):
+			continue
 		button.add_theme_color_override("font_color", text_color)
 		button.add_theme_color_override("font_hover_color", text_color)
 		button.add_theme_color_override("font_pressed_color", text_color)
 		button.add_theme_color_override("font_focus_color", text_color)
+		button.add_theme_color_override("font_disabled_color", text_color)
 		button.add_theme_font_size_override("font_size", font_size)
 
 

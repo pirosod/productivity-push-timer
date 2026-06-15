@@ -2,7 +2,7 @@ extends Node
 
 const DATA_FOLDER_NAME := "Productivity data"
 const DATA_FILE_NAME := "productivity.json"
-const VERSION := 1
+const VERSION := 2
 const DEFAULT_WINDOW_WIDTH := 1110
 const DEFAULT_WINDOW_HEIGHT := 1450
 const LEGACY_WINDOW_WIDTH := 950
@@ -331,6 +331,7 @@ func load_data() -> void:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return
 	_apply_loaded_data(parsed)
+	_migrate_datetime_year_bug()
 
 
 func save_data() -> void:
@@ -409,6 +410,39 @@ func _store_settings_cache(settings: Dictionary) -> void:
 
 func _mark_dirty() -> void:
 	_dirty = true
+
+
+func _migrate_datetime_year_bug() -> void:
+	if bool(_settings_get("datetime_year_bug_fixed", false)):
+		return
+	var migrated_sessions: Dictionary = {}
+	for day_key in _sessions.keys():
+		var corrected_key := TimeUtils.correct_day_key_year_offset(str(day_key))
+		if not migrated_sessions.has(corrected_key):
+			migrated_sessions[corrected_key] = []
+		for session in _sessions[day_key]:
+			var fixed_session: Dictionary = (session as Dictionary).duplicate()
+			fixed_session["start"] = TimeUtils.correct_iso_year_offset(str(session.get("start", "")))
+			fixed_session["end"] = TimeUtils.correct_iso_year_offset(str(session.get("end", "")))
+			migrated_sessions[corrected_key].append(fixed_session)
+	_sessions = migrated_sessions
+	_daily_totals.clear()
+	for day_key in _sessions.keys():
+		var day_sessions: Array = _sessions[day_key]
+		day_sessions.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			return TimeUtils.unix_from_iso(str(a.get("start", ""))) < TimeUtils.unix_from_iso(
+				str(b.get("start", ""))
+			)
+		)
+		_sessions[day_key] = day_sessions
+		_recompute_day_totals(str(day_key))
+	if not _last_productivity_day_key.is_empty():
+		_last_productivity_day_key = TimeUtils.correct_day_key_year_offset(_last_productivity_day_key)
+	_last_productivity_day_key = TimeUtils.get_productivity_day_key_now()
+	_settings_set("last_productivity_day_key", _last_productivity_day_key)
+	_settings_set("datetime_year_bug_fixed", true)
+	_mark_dirty()
+	save_data()
 
 
 func _add_session_segment(segment: Dictionary) -> void:

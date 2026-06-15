@@ -243,7 +243,7 @@ static func unix_to_datetime_dict(unix: int) -> Dictionary:
 	var mp: int = idiv(5 * doy + 2, 153)
 	var d: int = doy - idiv(153 * mp + 2, 5) + 1
 	var m: int = mp + 3 if mp < 10 else mp - 9
-	if mp < 10:
+	if m <= 2:
 		y += 1
 	return {
 		"year": y,
@@ -287,6 +287,34 @@ static func datetime_to_unix_utc(dt: Dictionary) -> int:
 
 static func date_key(year: int, month: int, day: int) -> String:
 	return "%04d-%02d-%02d" % [year, month, day]
+
+
+static func correct_day_key_year_offset(day_key: String) -> String:
+	var parts := day_key.split("-")
+	if parts.size() < 3:
+		return day_key
+	var year := int(parts[0])
+	var month := int(parts[1])
+	var day := int(parts[2])
+	if month >= 3 and month <= 12:
+		year -= 1
+	return date_key(year, month, day)
+
+
+static func correct_iso_year_offset(iso: String) -> String:
+	if iso.is_empty():
+		return iso
+	var parts: PackedStringArray = iso.split("T", false)
+	if parts.size() < 2:
+		return iso
+	var date_bits: PackedStringArray = parts[0].split("-", false)
+	if date_bits.size() < 3:
+		return iso
+	var month := int(date_bits[1])
+	if month < 3 or month > 12:
+		return iso
+	var year := int(date_bits[0]) - 1
+	return "%04d-%s-%sT%s" % [year, date_bits[1], date_bits[2], parts[1]]
 
 
 static func previous_day_key(day_key: String) -> String:

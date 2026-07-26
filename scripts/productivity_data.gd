@@ -304,19 +304,26 @@ func delete_session(day_key: String, session_index: int) -> bool:
 	return true
 
 
-## Gap above the finished session at session_index (between previous end and this start).
+## Insert above a finished session.
+## Start min = previous end (or 00:00 for the first row).
+## End max = one minute before this row's start (never touches the next entry).
 func get_insert_gap_above_session(day_key: String, session_index: int) -> Dictionary:
 	if is_session_active():
 		return {"ok": false}
 	var day_sessions: Array = get_sessions_for_day(day_key)
 	if session_index < 0 or session_index >= day_sessions.size():
 		return {"ok": false}
-	var gap_end := TimeUtils.unix_from_iso(str(day_sessions[session_index].get("start", "")))
+	var current_start := _floor_unix_to_minute(
+		TimeUtils.unix_from_iso(str(day_sessions[session_index].get("start", "")))
+	)
+	var gap_end := current_start - 60
 	var gap_start: int
 	if session_index == 0:
 		gap_start = TimeUtils.day_key_to_unix(day_key)
 	else:
-		gap_start = TimeUtils.unix_from_iso(str(day_sessions[session_index - 1].get("end", "")))
+		gap_start = _floor_unix_to_minute(
+			TimeUtils.unix_from_iso(str(day_sessions[session_index - 1].get("end", "")))
+		)
 	if gap_end - gap_start < 60:
 		return {"ok": false}
 	return {
@@ -324,30 +331,30 @@ func get_insert_gap_above_session(day_key: String, session_index: int) -> Dictio
 		"start_unix": gap_start,
 		"end_unix": gap_end,
 		"tracks_now": false,
+		"lock_start": false,
 	}
 
 
-## Gap after the last finished session of the day (session end → same max as modify).
+## Append after the last finished session of the day.
+## Start is fixed at that session's end; end may run up to 23:59 the same day.
 func get_insert_gap_after_session(day_key: String, session_index: int) -> Dictionary:
 	if is_session_active():
 		return {"ok": false}
 	var day_sessions: Array = get_sessions_for_day(day_key)
 	if session_index < 0 or session_index != day_sessions.size() - 1:
 		return {"ok": false}
-	var bounds := get_edit_bounds(day_key, session_index)
-	if not bool(bounds.get("ok", false)):
-		return {"ok": false}
-	var gap_start := TimeUtils.unix_from_iso(str(day_sessions[session_index].get("end", "")))
-	var gap_end := int(bounds.get("max_end", 0))
-	if bool(bounds.get("tracks_now", false)):
-		gap_end = _floor_unix_to_minute(int(Time.get_unix_time_from_system()))
+	var gap_start := _floor_unix_to_minute(
+		TimeUtils.unix_from_iso(str(day_sessions[session_index].get("end", "")))
+	)
+	var gap_end := TimeUtils.clock_on_productivity_day(day_key, 23, 59)
 	if gap_end - gap_start < 60:
 		return {"ok": false}
 	return {
 		"ok": true,
 		"start_unix": gap_start,
 		"end_unix": gap_end,
-		"tracks_now": bool(bounds.get("tracks_now", false)),
+		"tracks_now": false,
+		"lock_start": true,
 	}
 
 
@@ -384,7 +391,9 @@ func insert_manual_session(day_key: String, start_unix: int, end_unix: int) -> b
 	return true
 
 
-## Bounds for editing a finished session. tracks_now = end max follows wall-clock now.
+## Bounds for editing a finished session.
+## Start min = previous end (or 00:00). End max = next start − 1 min (or 23:59).
+## Never overlaps neighbors; a lost edge minute is intentional.
 func get_edit_bounds(day_key: String, session_index: int) -> Dictionary:
 	if is_session_active():
 		return {"ok": false}
@@ -392,41 +401,29 @@ func get_edit_bounds(day_key: String, session_index: int) -> Dictionary:
 	if session_index < 0 or session_index >= day_sessions.size():
 		return {"ok": false}
 	var session: Dictionary = day_sessions[session_index]
-	var original_start := TimeUtils.unix_from_iso(str(session.get("start", "")))
-	var original_end := TimeUtils.unix_from_iso(str(session.get("end", "")))
+	var original_start := _floor_unix_to_minute(
+		TimeUtils.unix_from_iso(str(session.get("start", "")))
+	)
+	var original_end := _floor_unix_to_minute(
+		TimeUtils.unix_from_iso(str(session.get("end", "")))
+	)
 	if original_end <= original_start:
 		return {"ok": false}
 	var min_start: int
 	if session_index == 0:
-		var prev_key := TimeUtils.previous_day_key(day_key)
-		var prev_sessions: Array = get_sessions_for_day(prev_key)
-		if prev_sessions.size() > 0:
-			min_start = TimeUtils.unix_from_iso(
-				str(prev_sessions[prev_sessions.size() - 1].get("end", ""))
-			)
-		else:
-			min_start = TimeUtils.day_key_to_unix(prev_key)
+		min_start = TimeUtils.day_key_to_unix(day_key)
 	else:
-		min_start = TimeUtils.unix_from_iso(str(day_sessions[session_index - 1].get("end", "")))
+		min_start = _floor_unix_to_minute(
+			TimeUtils.unix_from_iso(str(day_sessions[session_index - 1].get("end", "")))
+		)
 	var max_end: int
-	var tracks_now := false
-	var today_key := TimeUtils.get_productivity_day_key_now()
-	var now_floor := _floor_unix_to_minute(int(Time.get_unix_time_from_system()))
 	if session_index < day_sessions.size() - 1:
-		max_end = TimeUtils.unix_from_iso(str(day_sessions[session_index + 1].get("start", "")))
-	elif day_key == today_key:
-		max_end = now_floor
-		tracks_now = true
+		var next_start := _floor_unix_to_minute(
+			TimeUtils.unix_from_iso(str(day_sessions[session_index + 1].get("start", "")))
+		)
+		max_end = next_start - 60
 	else:
-		var next_key := TimeUtils.next_day_key(day_key)
-		var next_sessions: Array = get_sessions_for_day(next_key)
-		if next_sessions.size() > 0:
-			max_end = TimeUtils.unix_from_iso(str(next_sessions[0].get("start", "")))
-		elif next_key == today_key:
-			max_end = now_floor
-			tracks_now = true
-		else:
-			max_end = TimeUtils.day_key_to_unix(TimeUtils.next_day_key(next_key))
+		max_end = TimeUtils.clock_on_productivity_day(day_key, 23, 59)
 	if max_end - min_start < 60:
 		return {"ok": false}
 	return {
@@ -435,7 +432,7 @@ func get_edit_bounds(day_key: String, session_index: int) -> Dictionary:
 		"max_end": max_end,
 		"original_start": original_start,
 		"original_end": original_end,
-		"tracks_now": tracks_now,
+		"tracks_now": false,
 	}
 
 
@@ -449,8 +446,6 @@ func update_manual_session(
 		return false
 	var min_start := int(bounds.get("min_start", 0))
 	var max_end := int(bounds.get("max_end", 0))
-	if bool(bounds.get("tracks_now", false)):
-		max_end = _floor_unix_to_minute(int(Time.get_unix_time_from_system()))
 	start_unix = clampi(start_unix, min_start, maxi(max_end - 60, min_start))
 	end_unix = clampi(end_unix, mini(start_unix + 60, max_end), max_end)
 	if end_unix - start_unix < 60:

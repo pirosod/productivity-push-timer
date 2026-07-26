@@ -494,7 +494,8 @@ func _open_add_session_editor() -> void:
 		_pending_insert_day_key,
 		int(gap.get("start_unix", 0)),
 		int(gap.get("end_unix", 0)),
-		bool(gap.get("tracks_now", false))
+		bool(gap.get("tracks_now", false)),
+		bool(gap.get("lock_start", false))
 	)
 	_add_session_editor.apply_theme()
 

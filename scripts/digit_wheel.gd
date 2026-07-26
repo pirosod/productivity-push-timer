@@ -16,7 +16,8 @@ const SELECTION_OUTLINE := Color(0.08, 0.08, 0.08, 0.35)
 var value: int = 0
 var _scroll: float = 0.0
 var _allowed: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-var _original_digit: int = -1
+## Digits that appear in the logged session span (modify mode yellow).
+var _logged_digits: Array[int] = []
 var _tween: Tween
 var _font: Font
 
@@ -53,13 +54,18 @@ func set_allowed_digits(digits: Array) -> void:
 	queue_redraw()
 
 
-func set_original_digit(digit: int) -> void:
-	_original_digit = clampi(digit, -1, 9)
+## Yellow = digit appears in the logged session span; green = allowed outside it.
+func set_logged_digits(digits: Array) -> void:
+	_logged_digits.clear()
+	for item in digits:
+		var digit := int(item)
+		if digit >= 0 and digit <= 9 and not _logged_digits.has(digit):
+			_logged_digits.append(digit)
 	queue_redraw()
 
 
-func clear_original_digit() -> void:
-	_original_digit = -1
+func clear_logged_digits() -> void:
+	_logged_digits.clear()
 	queue_redraw()
 
 
@@ -82,8 +88,14 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _nudge(direction: int) -> void:
-	var target := clampi(value + direction, 0, 9)
-	if target == value:
+	var target := value + direction
+	if target < 0 or target > 9:
+		var peek := float(value) + float(direction) * PEEK_FRACTION
+		_kill_tween()
+		_tween = create_tween()
+		_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		_tween.tween_method(_set_scroll, _scroll, peek, BOUNCE_SECONDS * 0.45)
+		_tween.tween_method(_set_scroll, peek, float(value), BOUNCE_SECONDS).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		return
 	if _is_allowed(target):
 		value = target
@@ -124,6 +136,10 @@ func _is_allowed(digit: int) -> bool:
 	return _allowed.has(digit)
 
 
+func _is_logged(digit: int) -> bool:
+	return _logged_digits.has(digit)
+
+
 func _nearest_allowed(digit: int) -> int:
 	var best: int = _allowed[0]
 	var best_dist: int = absi(best - digit)
@@ -136,26 +152,17 @@ func _nearest_allowed(digit: int) -> int:
 
 
 func _digit_bg_color(digit: int) -> Color:
-	if _original_digit < 0:
-		if _is_allowed(digit):
-			return Color(0.72, 0.72, 0.72, 1.0)
+	if not _is_allowed(digit):
 		return INVALID_RED
-	if digit == _original_digit:
+	if _is_logged(digit):
 		return ORIGINAL_YELLOW
-	if _is_allowed(digit):
-		return VALID_GREEN
-	return INVALID_RED
+	return VALID_GREEN
 
 
 func _draw() -> void:
 	var row_h := _row_height()
 	var center_y := size.y * 0.5
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.55, 0.55, 0.55, 1.0))
-	if _original_digit < 0:
-		draw_rect(
-			Rect2(0.0, center_y - row_h * 0.5, size.x, row_h),
-			Color(0.35, 0.85, 0.45, 0.35)
-		)
 	if _font == null:
 		return
 	var font_size := UiScale.font_size(14)
@@ -164,56 +171,20 @@ func _draw() -> void:
 		var y := center_y + offset
 		if y < -row_h or y > size.y + row_h:
 			continue
-		if _original_digit >= 0:
-			draw_rect(Rect2(0.0, y - row_h * 0.5, size.x, row_h), _digit_bg_color(digit))
-		elif not _is_allowed(digit):
-			draw_rect(Rect2(0.0, y - row_h * 0.5, size.x, row_h), INVALID_RED)
+		draw_rect(Rect2(0.0, y - row_h * 0.5, size.x, row_h), _digit_bg_color(digit))
 		var dist := absf(offset) / row_h
 		var alpha := clampf(1.0 - dist * 0.55, 0.25, 1.0)
 		var color := Color(0.08, 0.08, 0.08, alpha)
-		if _original_digit < 0 and not _is_allowed(digit):
-			color = color.lerp(Color(0.95, 0.2, 0.2, 1.0), 0.45)
-			color.a = alpha * 0.85
 		var text := str(digit)
 		var text_size := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
 		var pos := Vector2((size.x - text_size.x) * 0.5, y + text_size.y * 0.35)
 		draw_string(_font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
-	if _original_digit >= 0:
-		draw_rect(
-			Rect2(1.0, center_y - row_h * 0.5, size.x - 2.0, row_h),
-			SELECTION_OUTLINE,
-			false,
-			UiScale.scale(2.0)
-		)
-	else:
-		_draw_invalid_gradients(row_h, center_y)
+	draw_rect(
+		Rect2(1.0, center_y - row_h * 0.5, size.x - 2.0, row_h),
+		SELECTION_OUTLINE,
+		false,
+		UiScale.scale(2.0)
+	)
 	var fade_h := size.y * 0.28
 	draw_rect(Rect2(0.0, 0.0, size.x, fade_h), Color(0.35, 0.35, 0.35, 0.4))
 	draw_rect(Rect2(0.0, size.y - fade_h, size.x, fade_h), Color(0.35, 0.35, 0.35, 0.4))
-
-
-func _draw_invalid_gradients(row_h: float, center_y: float) -> void:
-	var above := value - 1
-	var below := value + 1
-	if above >= 0 and not _is_allowed(above):
-		var top := center_y - row_h * 1.15
-		var height := row_h * 0.9
-		_draw_vertical_fade(Rect2(0.0, top, size.x, height), false)
-	if below <= 9 and not _is_allowed(below):
-		var top := center_y + row_h * 0.25
-		var height := row_h * 0.9
-		_draw_vertical_fade(Rect2(0.0, top, size.x, height), true)
-
-
-func _draw_vertical_fade(rect: Rect2, fade_down: bool) -> void:
-	var steps := 8
-	for i in steps:
-		var t := float(i) / float(steps - 1)
-		var alpha := lerpf(0.0, 0.30, t)
-		var y: float
-		var h := rect.size.y / float(steps)
-		if fade_down:
-			y = rect.position.y + t * rect.size.y
-		else:
-			y = rect.position.y + (1.0 - t) * rect.size.y - h
-		draw_rect(Rect2(rect.position.x, y, rect.size.x, h + 0.5), Color(0.95, 0.15, 0.15, alpha))

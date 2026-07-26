@@ -12,6 +12,7 @@ var _day_key: String = ""
 var _gap_start: int = 0
 var _gap_end: int = 0
 var _tracks_now := false
+var _lock_start := false
 var _last_bound_minute := -1
 var _backdrop: ColorRect
 var _panel: PanelContainer
@@ -127,7 +128,11 @@ func _ensure_built() -> void:
 
 
 func open_for_gap(
-	day_key: String, gap_start: int, gap_end: int, tracks_now: bool = false
+	day_key: String,
+	gap_start: int,
+	gap_end: int,
+	tracks_now: bool = false,
+	lock_start: bool = false
 ) -> void:
 	_ensure_built()
 	_mode = Mode.ADD
@@ -135,14 +140,22 @@ func open_for_gap(
 	_gap_start = gap_start
 	_gap_end = gap_end
 	_tracks_now = tracks_now
+	_lock_start = lock_start
 	_title.text = "Add session entry"
-	_start_picker.clear_original_unix()
-	_end_picker.clear_original_unix()
+	_start_picker.clear_logged_time_range()
+	_end_picker.clear_logged_time_range()
 	var default_start := gap_start
-	var default_end := mini(gap_start + 60, gap_end)
-	if default_end <= default_start:
+	var start_max := gap_start if _lock_start else maxi(gap_end - 60, gap_start)
+	var default_end: int
+	if _lock_start:
+		# Append after: start locked; end defaults to +1 minute.
+		default_end = mini(gap_start + 60, gap_end)
+		if default_end <= default_start:
+			default_end = gap_end
+	else:
+		# Insert above: start at prev end / 00:00; end at minute before current row.
 		default_end = gap_end
-	_start_picker.configure(day_key, default_start, gap_start, maxi(gap_end - 60, gap_start))
+	_start_picker.configure(day_key, default_start, gap_start, start_max)
 	_end_picker.configure(
 		day_key,
 		default_end,
@@ -174,9 +187,10 @@ func open_for_edit(
 	_gap_start = min_start
 	_gap_end = max_end
 	_tracks_now = tracks_now
+	_lock_start = false
 	_title.text = "Modify entry"
-	_start_picker.set_original_unix(original_start)
-	_end_picker.set_original_unix(original_end)
+	_start_picker.set_logged_time_range(original_start, original_end)
+	_end_picker.set_logged_time_range(original_start, original_end)
 	_start_picker.configure(
 		day_key,
 		original_start,
@@ -257,13 +271,12 @@ func _on_end_changed(_unix: int) -> void:
 
 func _sync_dependent_bounds() -> void:
 	var start_unix := _start_picker.get_unix()
-	var end_unix := _end_picker.get_unix()
-	var start_max := maxi(_gap_end - 60, _gap_start)
+	var start_max := _gap_start if _lock_start else maxi(_gap_end - 60, _gap_start)
 	_start_picker.set_bounds(_gap_start, start_max)
 	start_unix = _start_picker.get_unix()
 	var end_min := mini(start_unix + 60, _gap_end)
 	_end_picker.set_bounds(end_min, _gap_end)
-	end_unix = _end_picker.get_unix()
+	var end_unix := _end_picker.get_unix()
 	if end_unix <= start_unix:
 		_end_picker.configure(_day_key, end_min, end_min, _gap_end)
 

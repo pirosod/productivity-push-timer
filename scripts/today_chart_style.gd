@@ -86,6 +86,10 @@ static func marker_color(index: int) -> Color:
 			return Color(0.65, 0.35, 0.9, 0.95)
 
 
+## When true, content-box interiors use the history sepia feather.
+static var history_mode := false
+
+
 static func is_dark_mode() -> bool:
 	return ProductivityData.is_session_active()
 

@@ -27,11 +27,17 @@ var _show_edited_badge := false
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	clip_contents = true
+	custom_minimum_size = Vector2(0, TodayChartStyle.row_height())
 	_content = HBoxContainer.new()
 	_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_content.clip_contents = true
 	_content.add_theme_constant_override("separation", UiScale.scale_i(4))
 	add_child(_content)
-	custom_minimum_size.y = TodayChartStyle.row_height()
+
+
+func _get_minimum_size() -> Vector2:
+	return Vector2(0, TodayChartStyle.row_height())
 
 
 func _notification(what: int) -> void:
@@ -97,8 +103,10 @@ func set_columns(values: Array) -> void:
 		label.text = str(value)
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.clip_text = false
+		label.clip_text = true
+		label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		label.custom_minimum_size.x = 0
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_style_label(label)
 		_content.add_child(label)

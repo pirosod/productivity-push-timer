@@ -653,9 +653,11 @@ func _refresh_ui() -> void:
 func _apply_theme_mode() -> void:
 	var is_dark := ProductivityData.is_session_active()
 	var history_mode := _is_history_mode()
+	TodayChartStyle.history_mode = history_mode
 	_background.is_dark_mode = is_dark
 	_background.is_history_mode = history_mode
 	_background.queue_redraw()
+	get_tree().call_group("box_interior_hosts", "refresh_interior_bg")
 	TodayChartStyle.apply_header_box(_fixed_header)
 	TodayChartStyle.apply_popup_box(_popup_panel)
 	TodayChartStyle.apply_popup_box(_delete_popup_panel)

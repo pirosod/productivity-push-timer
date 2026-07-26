@@ -9,6 +9,26 @@ signal session_edit_requested(day_key: String, session_index: int)
 const COLUMN_HEADERS := ["Start", "End", "Logged", "Total"]
 
 
+func _ready() -> void:
+	custom_minimum_size.x = 0
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	clip_contents = true
+
+
+## Keep table width from being driven by cell text (parent column owns width).
+## (Cannot call super._get_minimum_size — native VBoxContainer has no GDScript impl.)
+func _get_minimum_size() -> Vector2:
+	var height := 0.0
+	var visible := 0
+	for child in get_children():
+		if child is Control and child.visible:
+			height += child.get_combined_minimum_size().y
+			visible += 1
+	if visible > 1:
+		height += float(get_theme_constant("separation")) * float(visible - 1)
+	return Vector2(0.0, height)
+
+
 func build_for_day(day_key: String, include_active: bool = false, body_only: bool = false) -> void:
 	_clear_rows()
 	if not body_only:
@@ -91,6 +111,9 @@ func build_header_row(target: HBoxContainer) -> void:
 
 func _populate_header_row(row: HBoxContainer) -> void:
 	row.add_theme_constant_override("separation", UiScale.scale_i(4))
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.clip_contents = true
+	row.custom_minimum_size.x = 0
 	for header in COLUMN_HEADERS:
 		_add_header_label(row, header)
 
@@ -100,8 +123,10 @@ func _add_header_label(row: HBoxContainer, header: String) -> void:
 	label.text = header
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.clip_text = false
+	label.clip_text = true
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.custom_minimum_size.x = 0
 	_style_label(label)
 	row.add_child(label)
 
@@ -119,6 +144,7 @@ func _add_session_row_from_columns(
 ) -> void:
 	var row := SessionRow.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.custom_minimum_size.x = 0
 	row.set_stripe_index(stripe_index)
 	if tint_minutes >= 0:
 		row.set_tint_minutes(float(tint_minutes))

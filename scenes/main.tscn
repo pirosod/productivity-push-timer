@@ -142,8 +142,10 @@ theme_override_constants/separation = 8
 
 [node name="TodayHeader" type="Label" parent="MainScroll/Content/TodaySection/TodayBoxStack/TodayTableFrame/Margin/VBox" unique_id=1968632885]
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Today"
 horizontal_alignment = 1
+clip_text = true
 
 [node name="HeaderRow" type="HBoxContainer" parent="MainScroll/Content/TodaySection/TodayBoxStack/TodayTableFrame/Margin/VBox" unique_id=1087378937]
 layout_mode = 2
@@ -174,13 +176,17 @@ layout_mode = 2
 mouse_filter = 2
 script = ExtResource("9_vertex_front")
 
-[node name="MarkerRow" type="CenterContainer" parent="MainScroll/Content/TodaySection/TodayBoxStack/TodayTableFrame/Margin/VBox" unique_id=1998612920]
+[node name="MarkerRow" type="HBoxContainer" parent="MainScroll/Content/TodaySection/TodayBoxStack/TodayTableFrame/Margin/VBox" unique_id=1998612920]
 layout_mode = 2
 size_flags_horizontal = 3
+alignment = 1
+clip_contents = true
 
 [node name="TodayMarkerLegend" type="HBoxContainer" parent="MainScroll/Content/TodaySection/TodayBoxStack/TodayTableFrame/Margin/VBox/MarkerRow" unique_id=1919929996]
 layout_mode = 2
+size_flags_horizontal = 3
 alignment = 1
+clip_contents = true
 script = ExtResource("11_marker_legend")
 
 [node name="TodayTopShade" type="Control" parent="MainScroll/Content/TodaySection/TodayBoxStack" unique_id=1968632886]

@@ -31,11 +31,27 @@ func _ready() -> void:
 	clip_contents = true
 	custom_minimum_size.x = 0
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var margin: MarginContainer = $Margin
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.clip_contents = true
+	var vbox: VBoxContainer = $Margin/VBox
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.clip_contents = true
+	_header_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_header_row.clip_contents = true
+	_header_row.custom_minimum_size.x = 0
+	var marker_row: Control = $Margin/VBox/MarkerRow
+	marker_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	marker_row.clip_contents = true
+	marker_row.custom_minimum_size.x = 0
 	_scroll.custom_minimum_size.y = _visible_body_height()
 	_scroll.custom_minimum_size.x = 0
+	_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.mouse_filter = Control.MOUSE_FILTER_STOP
 	_scroll.gui_input.connect(_on_scroll_gui_input)
 	_scroll_content.gui_input.connect(_on_scroll_gui_input)
+	_scroll_content.custom_minimum_size.x = 0
+	_scroll_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_table.session_delete_requested.connect(_forward_delete_request)
 	_table.session_insert_requested.connect(_forward_insert_request)
 	_table.session_append_requested.connect(_forward_append_request)
@@ -46,7 +62,24 @@ func _ready() -> void:
 	_scroll_content.clip_contents = true
 	_table.z_index = 1
 	_table.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_table.custom_minimum_size.x = 0
+	_table.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_table.clip_contents = true
 	_table.add_theme_constant_override("separation", 0)
+	_chart.custom_minimum_size.x = 0
+
+
+## Width is owned by the parent column — never by label text inside.
+## (Cannot call super._get_minimum_size — native PanelContainer has no GDScript impl.)
+func _get_minimum_size() -> Vector2:
+	var height := 0.0
+	for child in get_children():
+		if child is Control and child.visible:
+			height = maxf(height, child.get_combined_minimum_size().y)
+	var style := get_theme_stylebox("panel")
+	if style != null:
+		height += style.get_margin(SIDE_TOP) + style.get_margin(SIDE_BOTTOM)
+	return Vector2(0.0, height)
 
 
 func _input(event: InputEvent) -> void:
@@ -144,6 +177,7 @@ func _sync_layer_sizes() -> void:
 	_chart.size = layer_size
 	_table.custom_minimum_size = Vector2(0, content_height)
 	_table.size = layer_size
+	_table.size.x = width
 	var row_centers := _get_row_centers_y()
 	_chart.configure(_current_day_key, _include_live, row_centers)
 	_vertex_front.configure(_current_day_key, _include_live, row_centers)

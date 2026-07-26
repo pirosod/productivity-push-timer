@@ -1,6 +1,6 @@
 extends Node
 
-const DAY_START_HOUR := 3
+const DAY_START_HOUR := 0
 const SECONDS_PER_DAY := 86400
 const OFFSET_STD := 9 * 3600 + 30 * 60
 const OFFSET_DST := 10 * 3600 + 30 * 60
@@ -13,7 +13,7 @@ static func idiv(a: int, b: int) -> int:
 
 static func get_productivity_day_key(unix: int) -> String:
 	var dt := unix_to_adelaide(unix)
-	if dt.hour < DAY_START_HOUR:
+	if DAY_START_HOUR > 0 and dt.hour < DAY_START_HOUR:
 		return previous_day_key(date_key(dt.year, dt.month, dt.day))
 	return date_key(dt.year, dt.month, dt.day)
 
@@ -38,7 +38,34 @@ static func day_key_to_unix(day_key: String) -> int:
 	return adelaide_to_unix(parse_day_key(day_key))
 
 
-static func get_next_3am_unix(unix: int) -> int:
+## Maps an Adelaide clock time onto a productivity day (midnight→midnight).
+static func clock_on_productivity_day(day_key: String, hour: int, minute: int) -> int:
+	var base := parse_day_key(day_key)
+	var year: int = int(base.year)
+	var month: int = int(base.month)
+	var day: int = int(base.day)
+	hour = clampi(hour, 0, 23)
+	minute = clampi(minute, 0, 59)
+	if DAY_START_HOUR > 0 and hour < DAY_START_HOUR:
+		day += 1
+		if day > days_in_month(year, month):
+			day = 1
+			month += 1
+			if month > 12:
+				month = 1
+				year += 1
+	return adelaide_to_unix({
+		"year": year,
+		"month": month,
+		"day": day,
+		"hour": hour,
+		"minute": minute,
+		"second": 0,
+	})
+
+
+## Next productivity-day boundary at or after `unix` (Adelaide midnight when DAY_START_HOUR is 0).
+static func get_next_day_boundary_unix(unix: int) -> int:
 	var dt := unix_to_adelaide(unix)
 	var boundary_unix := adelaide_to_unix({
 		"year": dt.year,
@@ -69,11 +96,16 @@ static func get_next_3am_unix(unix: int) -> int:
 	return boundary_unix
 
 
+## Deprecated alias — prefer get_next_day_boundary_unix.
+static func get_next_3am_unix(unix: int) -> int:
+	return get_next_day_boundary_unix(unix)
+
+
 static func split_session_at_day_boundaries(start_unix: int, end_unix: int) -> Array:
 	var segments: Array = []
 	var cursor := start_unix
 	while cursor < end_unix:
-		var segment_end := mini(get_next_3am_unix(cursor), end_unix)
+		var segment_end := mini(get_next_day_boundary_unix(cursor), end_unix)
 		var minutes := int((segment_end - cursor) / 60.0)
 		if minutes > 0:
 			segments.append({
@@ -329,6 +361,57 @@ static func previous_day_key(day_key: String) -> String:
 			year -= 1
 		day = days_in_month(year, month)
 	return date_key(year, month, day)
+
+
+static func next_day_key(day_key: String) -> String:
+	var parts := day_key.split("-")
+	var year: int = int(parts[0])
+	var month: int = int(parts[1])
+	var day: int = int(parts[2]) + 1
+	if day > days_in_month(year, month):
+		day = 1
+		month += 1
+		if month > 12:
+			month = 1
+			year += 1
+	return date_key(year, month, day)
+
+
+static func add_days_to_day_key(day_key: String, delta: int) -> String:
+	var key := day_key
+	if delta >= 0:
+		for _i in delta:
+			key = next_day_key(key)
+	else:
+		for _i in -delta:
+			key = previous_day_key(key)
+	return key
+
+
+static func weekday_of_day_key(day_key: String) -> int:
+	var dt := parse_day_key(day_key)
+	return weekday_from_calendar_date(int(dt.year), int(dt.month), int(dt.day))
+
+
+## Monday productivity day key for the Mon–Sun week containing day_key.
+static func monday_key_for_day(day_key: String) -> String:
+	var weekday := weekday_of_day_key(day_key)
+	var days_since_monday := (weekday + 6) % 7
+	return add_days_to_day_key(day_key, -days_since_monday)
+
+
+static func week_day_keys(monday_key: String) -> Array:
+	var keys: Array = []
+	var key := monday_key
+	for _i in 7:
+		keys.append(key)
+		key = next_day_key(key)
+	return keys
+
+
+static func format_day_month(day_key: String) -> String:
+	var dt := parse_day_key(day_key)
+	return "%d/%d" % [int(dt.day), int(dt.month)]
 
 
 static func days_in_month(year: int, month: int) -> int:

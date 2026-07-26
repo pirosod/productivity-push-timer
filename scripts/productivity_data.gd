@@ -1,8 +1,10 @@
 extends Node
 
+signal productivity_day_changed(new_day_key: String)
+
 const DATA_FOLDER_NAME := "Productivity data"
 const DATA_FILE_NAME := "productivity.json"
-const VERSION := 2
+const VERSION := 3
 const DEFAULT_WINDOW_WIDTH := 1110
 const DEFAULT_WINDOW_HEIGHT := 1450
 const LEGACY_WINDOW_WIDTH := 950
@@ -115,8 +117,26 @@ func _check_and_archive_new_day() -> void:
 		return
 	if today_key == _last_productivity_day_key:
 		return
+	_commit_active_session_before_day(today_key)
 	_archive_current_data()
 	_set_last_productivity_day_key(today_key)
+	productivity_day_changed.emit(today_key)
+
+
+func _commit_active_session_before_day(new_day_key: String) -> void:
+	if not is_session_active():
+		return
+	var boundary_unix := TimeUtils.day_key_to_unix(new_day_key)
+	if _session_start_unix >= boundary_unix:
+		return
+	var segments: Array = TimeUtils.split_session_at_day_boundaries(
+		_session_start_unix, boundary_unix
+	)
+	for segment in segments:
+		_add_session_segment(segment)
+	_session_start_unix = boundary_unix
+	_mark_dirty()
+	save_data()
 
 
 func _set_last_productivity_day_key(day_key: String) -> void:
@@ -127,6 +147,10 @@ func _set_last_productivity_day_key(day_key: String) -> void:
 
 
 func _archive_current_data() -> void:
+	_archive_named_backup("")
+
+
+func _archive_named_backup(label: String) -> void:
 	if _dirty:
 		save_data()
 	var source_path := _data_file_path()
@@ -138,7 +162,8 @@ func _archive_current_data() -> void:
 	var stamp := "%04d-%02d-%02d_%02d-%02d-%02d" % [
 		dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second
 	]
-	var archive_path := _archive_dir_path() + "productivity_%s.json" % stamp
+	var suffix := ("_%s" % label) if not label.is_empty() else ""
+	var archive_path := _archive_dir_path() + "productivity%s_%s.json" % [suffix, stamp]
 	var content: String = FileAccess.get_file_as_string(source_path)
 	var file := FileAccess.open(archive_path, FileAccess.WRITE)
 	if file == null:
@@ -206,10 +231,11 @@ func get_session_minutes_list_for_day(day_key: String, include_live: bool) -> Ar
 	for session in get_sessions_for_day(day_key):
 		minutes_list.append(int(session.get("minutes", 0)))
 	if include_live and is_session_active():
-		if TimeUtils.get_productivity_day_key_now() == day_key:
-			var now := int(Time.get_unix_time_from_system())
-			var live_minutes := float(now - _session_start_unix) / 60.0
-			minutes_list.append(live_minutes)
+		var now := int(Time.get_unix_time_from_system())
+		var segments: Array = TimeUtils.split_session_at_day_boundaries(_session_start_unix, now)
+		for segment in segments:
+			if str(segment.get("day_key", "")) == day_key:
+				minutes_list.append(float(segment.get("minutes", 0)))
 	return minutes_list
 
 
@@ -218,8 +244,9 @@ func get_session_cumulative_list_for_day(day_key: String, include_live: bool) ->
 	for session in get_sessions_for_day(day_key):
 		cumulative_list.append(int(session.get("cumulative_minutes", 0)))
 	if include_live and is_session_active():
-		if TimeUtils.get_productivity_day_key_now() == day_key:
-			cumulative_list.append(get_live_minutes_for_day(day_key))
+		var live_for_day := get_live_minutes_for_day(day_key)
+		if live_for_day > 0:
+			cumulative_list.append(live_for_day)
 	return cumulative_list
 
 
@@ -277,6 +304,189 @@ func delete_session(day_key: String, session_index: int) -> bool:
 	return true
 
 
+## Gap above the finished session at session_index (between previous end and this start).
+func get_insert_gap_above_session(day_key: String, session_index: int) -> Dictionary:
+	if is_session_active():
+		return {"ok": false}
+	var day_sessions: Array = get_sessions_for_day(day_key)
+	if session_index < 0 or session_index >= day_sessions.size():
+		return {"ok": false}
+	var gap_end := TimeUtils.unix_from_iso(str(day_sessions[session_index].get("start", "")))
+	var gap_start: int
+	if session_index == 0:
+		gap_start = TimeUtils.day_key_to_unix(day_key)
+	else:
+		gap_start = TimeUtils.unix_from_iso(str(day_sessions[session_index - 1].get("end", "")))
+	if gap_end - gap_start < 60:
+		return {"ok": false}
+	return {
+		"ok": true,
+		"start_unix": gap_start,
+		"end_unix": gap_end,
+		"tracks_now": false,
+	}
+
+
+## Gap after the last finished session of the day (session end → same max as modify).
+func get_insert_gap_after_session(day_key: String, session_index: int) -> Dictionary:
+	if is_session_active():
+		return {"ok": false}
+	var day_sessions: Array = get_sessions_for_day(day_key)
+	if session_index < 0 or session_index != day_sessions.size() - 1:
+		return {"ok": false}
+	var bounds := get_edit_bounds(day_key, session_index)
+	if not bool(bounds.get("ok", false)):
+		return {"ok": false}
+	var gap_start := TimeUtils.unix_from_iso(str(day_sessions[session_index].get("end", "")))
+	var gap_end := int(bounds.get("max_end", 0))
+	if bool(bounds.get("tracks_now", false)):
+		gap_end = _floor_unix_to_minute(int(Time.get_unix_time_from_system()))
+	if gap_end - gap_start < 60:
+		return {"ok": false}
+	return {
+		"ok": true,
+		"start_unix": gap_start,
+		"end_unix": gap_end,
+		"tracks_now": bool(bounds.get("tracks_now", false)),
+	}
+
+
+func insert_manual_session(day_key: String, start_unix: int, end_unix: int) -> bool:
+	if is_session_active():
+		return false
+	if end_unix - start_unix < 60:
+		return false
+	var segments: Array = TimeUtils.split_session_at_day_boundaries(start_unix, end_unix)
+	if segments.is_empty():
+		return false
+	# First segment should belong to the day being edited (insert above / append after).
+	if str(segments[0].get("day_key", "")) != day_key:
+		return false
+	for segment in segments:
+		var seg_day := str(segment.get("day_key", ""))
+		var seg_start := int(segment.get("start_unix", 0))
+		var seg_end := int(segment.get("end_unix", 0))
+		for session in get_sessions_for_day(seg_day):
+			var existing_start := TimeUtils.unix_from_iso(str(session.get("start", "")))
+			var existing_end := TimeUtils.unix_from_iso(str(session.get("end", "")))
+			if seg_start < existing_end and seg_end > existing_start:
+				return false
+	var touched: Dictionary = {}
+	for segment in segments:
+		segment["edited"] = true
+		_add_session_segment(segment)
+		touched[str(segment.get("day_key", ""))] = true
+	for touched_key in touched.keys():
+		_sort_day_sessions(str(touched_key))
+		_recompute_day_totals(str(touched_key))
+	_mark_dirty()
+	save_data()
+	return true
+
+
+## Bounds for editing a finished session. tracks_now = end max follows wall-clock now.
+func get_edit_bounds(day_key: String, session_index: int) -> Dictionary:
+	if is_session_active():
+		return {"ok": false}
+	var day_sessions: Array = get_sessions_for_day(day_key)
+	if session_index < 0 or session_index >= day_sessions.size():
+		return {"ok": false}
+	var session: Dictionary = day_sessions[session_index]
+	var original_start := TimeUtils.unix_from_iso(str(session.get("start", "")))
+	var original_end := TimeUtils.unix_from_iso(str(session.get("end", "")))
+	if original_end <= original_start:
+		return {"ok": false}
+	var min_start: int
+	if session_index == 0:
+		var prev_key := TimeUtils.previous_day_key(day_key)
+		var prev_sessions: Array = get_sessions_for_day(prev_key)
+		if prev_sessions.size() > 0:
+			min_start = TimeUtils.unix_from_iso(
+				str(prev_sessions[prev_sessions.size() - 1].get("end", ""))
+			)
+		else:
+			min_start = TimeUtils.day_key_to_unix(prev_key)
+	else:
+		min_start = TimeUtils.unix_from_iso(str(day_sessions[session_index - 1].get("end", "")))
+	var max_end: int
+	var tracks_now := false
+	var today_key := TimeUtils.get_productivity_day_key_now()
+	var now_floor := _floor_unix_to_minute(int(Time.get_unix_time_from_system()))
+	if session_index < day_sessions.size() - 1:
+		max_end = TimeUtils.unix_from_iso(str(day_sessions[session_index + 1].get("start", "")))
+	elif day_key == today_key:
+		max_end = now_floor
+		tracks_now = true
+	else:
+		var next_key := TimeUtils.next_day_key(day_key)
+		var next_sessions: Array = get_sessions_for_day(next_key)
+		if next_sessions.size() > 0:
+			max_end = TimeUtils.unix_from_iso(str(next_sessions[0].get("start", "")))
+		elif next_key == today_key:
+			max_end = now_floor
+			tracks_now = true
+		else:
+			max_end = TimeUtils.day_key_to_unix(TimeUtils.next_day_key(next_key))
+	if max_end - min_start < 60:
+		return {"ok": false}
+	return {
+		"ok": true,
+		"min_start": min_start,
+		"max_end": max_end,
+		"original_start": original_start,
+		"original_end": original_end,
+		"tracks_now": tracks_now,
+	}
+
+
+func update_manual_session(
+	day_key: String, session_index: int, start_unix: int, end_unix: int
+) -> bool:
+	if is_session_active():
+		return false
+	var bounds := get_edit_bounds(day_key, session_index)
+	if not bool(bounds.get("ok", false)):
+		return false
+	var min_start := int(bounds.get("min_start", 0))
+	var max_end := int(bounds.get("max_end", 0))
+	if bool(bounds.get("tracks_now", false)):
+		max_end = _floor_unix_to_minute(int(Time.get_unix_time_from_system()))
+	start_unix = clampi(start_unix, min_start, maxi(max_end - 60, min_start))
+	end_unix = clampi(end_unix, mini(start_unix + 60, max_end), max_end)
+	if end_unix - start_unix < 60:
+		return false
+	var segments: Array = TimeUtils.split_session_at_day_boundaries(start_unix, end_unix)
+	if segments.is_empty():
+		return false
+	if not delete_session(day_key, session_index):
+		return false
+	var touched: Dictionary = {}
+	for segment in segments:
+		segment["edited"] = true
+		_add_session_segment(segment)
+		touched[str(segment.get("day_key", ""))] = true
+	for touched_key in touched.keys():
+		_sort_day_sessions(str(touched_key))
+		_recompute_day_totals(str(touched_key))
+	_mark_dirty()
+	save_data()
+	return true
+
+
+func _floor_unix_to_minute(unix: int) -> int:
+	return unix - (unix % 60)
+
+
+func _sort_day_sessions(day_key: String) -> void:
+	if not _sessions.has(day_key):
+		return
+	var day_sessions: Array = _sessions[day_key]
+	day_sessions.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return TimeUtils.unix_from_iso(str(a.get("start", ""))) < TimeUtils.unix_from_iso(str(b.get("start", "")))
+	)
+	_sessions[day_key] = day_sessions
+
+
 func _recompute_day_totals(day_key: String) -> void:
 	if not _sessions.has(day_key):
 		_daily_totals.erase(day_key)
@@ -332,6 +542,7 @@ func load_data() -> void:
 		return
 	_apply_loaded_data(parsed)
 	_migrate_datetime_year_bug()
+	_migrate_to_midnight_day_boundary()
 
 
 func save_data() -> void:
@@ -445,6 +656,45 @@ func _migrate_datetime_year_bug() -> void:
 	save_data()
 
 
+func _migrate_to_midnight_day_boundary() -> void:
+	if bool(_settings_get("midnight_day_boundary_migrated", false)):
+		return
+	_archive_named_backup("pre_midnight_boundary")
+	var raw_sessions: Array = []
+	for day_key in _sessions.keys():
+		for session in _sessions[day_key]:
+			var start_unix := TimeUtils.unix_from_iso(str(session.get("start", "")))
+			var end_unix := TimeUtils.unix_from_iso(str(session.get("end", "")))
+			if end_unix <= start_unix:
+				continue
+			raw_sessions.append({
+				"start_unix": start_unix,
+				"end_unix": end_unix,
+				"edited": bool(session.get("edited", false)),
+			})
+	_sessions.clear()
+	_daily_totals.clear()
+	for item in raw_sessions:
+		var segments: Array = TimeUtils.split_session_at_day_boundaries(
+			int(item["start_unix"]), int(item["end_unix"])
+		)
+		for segment in segments:
+			if bool(item["edited"]):
+				segment["edited"] = true
+			_add_session_segment(segment)
+	for day_key in _sessions.keys():
+		_sort_day_sessions(str(day_key))
+		_recompute_day_totals(str(day_key))
+	_last_productivity_day_key = TimeUtils.get_productivity_day_key_now()
+	_settings_set("last_productivity_day_key", _last_productivity_day_key)
+	# Live Push: commit anything before the new midnight boundary, then continue.
+	if is_session_active():
+		_commit_active_session_before_day(_last_productivity_day_key)
+	_settings_set("midnight_day_boundary_migrated", true)
+	_mark_dirty()
+	save_data()
+
+
 func _add_session_segment(segment: Dictionary) -> void:
 	var day_key: String = segment.get("day_key", "")
 	if day_key.is_empty():
@@ -463,6 +713,8 @@ func _add_session_segment(segment: Dictionary) -> void:
 		"minutes": segment_minutes,
 		"cumulative_minutes": cumulative,
 	})
+	if bool(segment.get("edited", false)):
+		day_sessions[day_sessions.size() - 1]["edited"] = true
 	_daily_totals[day_key] = cumulative
 	_sessions[day_key] = day_sessions
 

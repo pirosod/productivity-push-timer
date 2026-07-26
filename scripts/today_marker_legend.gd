@@ -8,6 +8,8 @@ var _include_live: bool = false
 func _ready() -> void:
 	add_theme_constant_override("separation", UiScale.scale_i(20))
 	alignment = BoxContainer.ALIGNMENT_CENTER
+	size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 
 func configure(day_key: String, include_live: bool) -> void:
@@ -60,22 +62,33 @@ func _build_marker_item(label_text: String, avg_minutes: float, swatch_color: Co
 	var item := HBoxContainer.new()
 	item.add_theme_constant_override("separation", UiScale.scale_i(6))
 	item.alignment = BoxContainer.ALIGNMENT_CENTER
+	item.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	item.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+
+	var label := Label.new()
+	label.text = "%s %s" % [label_text, TimeUtils.format_minutes_hm(int(round(avg_minutes)))]
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.clip_text = false
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_style_label(label)
+	item.add_child(label)
+
 	var picker := ColorPickerButton.new()
 	picker.color = swatch_color
 	picker.custom_minimum_size = Vector2(UiScale.scale_i(28), UiScale.scale_i(20))
+	picker.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	picker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	picker.focus_mode = Control.FOCUS_NONE
 	item.add_child(picker)
-	var label := Label.new()
-	label.text = "%s %s" % [label_text, TimeUtils.format_minutes_hm(int(round(avg_minutes)))]
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_style_label(label)
-	item.add_child(label)
 	return item
 
 
 func _style_label(label: Label) -> void:
 	var marker_control := MarkerControl.get_instance()
-	var label_size: int = marker_control.label_size() if marker_control else UiScale.scale_i(12)
-	label.add_theme_font_size_override("font_size", label_size)
+	var title_size: int = marker_control.label_size() if marker_control else UiScale.scale_i(12)
+	var minutes_size: int = marker_control.minutes_size() if marker_control else UiScale.scale_i(14)
+	# Use the larger of the two control sizes so title + minutes stay readable on one line.
+	label.add_theme_font_size_override("font_size", maxi(title_size, minutes_size))
 	label.add_theme_color_override("font_color", UiScale.text_color())

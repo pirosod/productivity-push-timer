@@ -100,6 +100,67 @@ static func panel_grey() -> Color:
 	return Color(0.12, 0.12, 0.12, 0.28) if is_dark_mode() else Color(0.88, 0.88, 0.88, 0.4)
 
 
+## Fully opaque panel fill (header bar — no see-through under Push/Snooze).
+static func panel_grey_opaque() -> Color:
+	var fill := panel_grey()
+	fill.a = 1.0
+	return fill
+
+
+static func panel_border_color() -> Color:
+	return Color(0.25, 0.25, 0.25)
+
+
+static func panel_border_width() -> int:
+	return UiScale.scale_i(3)
+
+
+static func panel_corner_radius() -> int:
+	return UiScale.scale_i(5)
+
+
+static func make_panel_style(content_margin: float = 0.0) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = panel_grey()
+	style.border_color = panel_border_color()
+	var width := panel_border_width()
+	style.border_width_left = width
+	style.border_width_top = width
+	style.border_width_right = width
+	style.border_width_bottom = width
+	style.set_corner_radius_all(panel_corner_radius())
+	if content_margin > 0.0:
+		var m := int(round(content_margin))
+		style.content_margin_left = m
+		style.content_margin_top = m
+		style.content_margin_right = m
+		style.content_margin_bottom = m
+	return style
+
+
+static func apply_panel_box(panel: PanelContainer, content_margin: float = 0.0) -> void:
+	panel.add_theme_stylebox_override("panel", make_panel_style(content_margin))
+
+
+static func apply_header_box(panel: PanelContainer) -> void:
+	var style := make_panel_style()
+	style.bg_color = panel_grey_opaque()
+	# Flush to the top of the window; round the bottom corners to match other boxes.
+	var radius := panel_corner_radius()
+	style.corner_radius_top_left = 0
+	style.corner_radius_top_right = 0
+	style.corner_radius_bottom_left = radius
+	style.corner_radius_bottom_right = radius
+	panel.add_theme_stylebox_override("panel", style)
+
+
+## Same opaque fill as Push/Snooze header, with normal rounded corners for dialogs.
+static func apply_popup_box(panel: PanelContainer, content_margin: float = 0.0) -> void:
+	var style := make_panel_style(content_margin)
+	style.bg_color = panel_grey_opaque()
+	panel.add_theme_stylebox_override("panel", style)
+
+
 static func zebra_color(row_index: int) -> Color:
 	if row_index % 2 == 0:
 		return Color(0, 0, 0, 0.0)

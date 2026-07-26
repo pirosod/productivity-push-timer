@@ -1,10 +1,13 @@
 extends ColorRect
 
 var is_dark_mode := false
+var is_history_mode := false
 
 
 func _draw() -> void:
 	var base := Color.BLACK if is_dark_mode else Color.WHITE
+	if is_history_mode and not is_dark_mode:
+		base = Color(0.93, 0.86, 0.72)
 	draw_rect(Rect2(Vector2.ZERO, size), base)
 	var bands := 28
 	for i in bands:
@@ -16,8 +19,10 @@ func _draw() -> void:
 		var bottom := Rect2(0, size.y - margin - thickness, size.x, thickness)
 		var left := Rect2(margin, 0, thickness, size.y)
 		var right := Rect2(size.x - margin - thickness, 0, thickness, size.y)
-		var shade := Color(0, 0, 0, alpha)
+		var shade := Color(0.35, 0.22, 0.08, alpha) if is_history_mode and not is_dark_mode else Color(0, 0, 0, alpha)
 		draw_rect(top, shade)
 		draw_rect(bottom, shade)
 		draw_rect(left, shade)
 		draw_rect(right, shade)
+	if is_history_mode and not is_dark_mode:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.55, 0.38, 0.18, 0.12))

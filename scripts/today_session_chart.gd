@@ -1,7 +1,6 @@
 extends Control
 class_name TodaySessionChart
 
-const BAND_MAX_MINUTES := 960
 const LARGE_DOT_RADIUS_BASE := 7.0
 const MARKER_OVERLAP_OFFSET_BASE := 2.0
 
@@ -35,28 +34,10 @@ func _draw() -> void:
 	var plot_rect: Rect2 = layout["plot_rect"]
 	var max_minutes: int = layout["max_minutes"]
 	var points: Array = layout["points"]
-	_draw_goal_bands(plot_rect, max_minutes)
 	_draw_area_fill(plot_rect, points)
 	_draw_connectors(points)
 	_draw_large_dots(points, layout["colors"])
 	_draw_average_markers(plot_rect, max_minutes)
-
-
-func _draw_goal_bands(plot_rect: Rect2, max_minutes: int) -> void:
-	for band in TodayChartStyle.goal_bands():
-		var start_minutes := float(band["start_h"]) * 60.0
-		var end_minutes := minf(float(band["end_h"]) * 60.0, float(BAND_MAX_MINUTES))
-		if end_minutes <= start_minutes:
-			continue
-		var y_top := TodayChartStyle.minutes_to_y(start_minutes, plot_rect, max_minutes)
-		var y_bottom := TodayChartStyle.minutes_to_y(end_minutes, plot_rect, max_minutes)
-		var rect := Rect2(
-			plot_rect.position.x,
-			y_top,
-			plot_rect.size.x,
-			y_bottom - y_top
-		)
-		draw_rect(rect, TodayChartStyle.band_color(band["color"]))
 
 
 func _draw_area_fill(plot_rect: Rect2, points: Array) -> void:

@@ -12,18 +12,14 @@ signal sizes_changed
 @export var today_header_size: int = 16
 @export var session_table_size: int = 16
 
-@export_group("History")
-@export var history_tab_size: int = 16
-@export var history_day_header_size: int = 16
-
 @export_group("Week Chart")
-@export var week_chart_day_label_size: int = 8
+@export var week_chart_day_label_size: int = 9
 
 @export_group("Selected Day")
 @export var selected_day_label_size: int = 16
 
 @export_group("Goals")
-@export var goal_label_size: int = 16
+@export var goal_label_size: int = 10
 
 @export_group("Popup")
 @export var popup_message_size: int = 16
@@ -76,14 +72,6 @@ func today_header_font_size() -> int:
 
 func session_table_font_size() -> int:
 	return sized(session_table_size)
-
-
-func history_tab_font_size() -> int:
-	return sized(history_tab_size)
-
-
-func history_day_header_font_size() -> int:
-	return sized(history_day_header_size)
 
 
 func week_chart_day_label_font_size() -> int:

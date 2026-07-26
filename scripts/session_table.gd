@@ -45,26 +45,9 @@ func _build_day_rows(day_key: String, include_active: bool) -> void:
 	var sessions := ProductivityData.get_sessions_for_day(day_key)
 	var allow_edit := not ProductivityData.is_session_active()
 	var last_index := sessions.size() - 1
-	for i in sessions.size():
-		var session: Dictionary = sessions[i]
-		var cumulative := int(session.get("cumulative_minutes", 0))
-		_add_session_row_from_columns(
-			day_key,
-			i,
-			[
-				TimeUtils.format_time(TimeUtils.unix_from_iso(str(session.get("start", "")))),
-				TimeUtils.format_time(TimeUtils.unix_from_iso(str(session.get("end", "")))),
-				TimeUtils.format_minutes_hm(int(session.get("minutes", 0))),
-				TimeUtils.format_minutes_hm(cumulative),
-			],
-			true,
-			allow_edit,
-			i,
-			cumulative,
-			bool(session.get("edited", false)),
-			allow_edit and i == last_index
-		)
+	var stripe := 0
 	var added_live := false
+	# Newest-first: live row on top, then finished sessions newest → oldest.
 	if include_active and ProductivityData.is_session_active():
 		var start_unix := ProductivityData.get_session_start_unix()
 		var live_for_day := ProductivityData.get_live_minutes_for_day(day_key)
@@ -84,12 +67,35 @@ func _build_day_rows(day_key: String, include_active: bool) -> void:
 				],
 				false,
 				false,
-				sessions.size(),
+				stripe,
 				live_for_day,
 				false,
 				false
 			)
+			stripe += 1
 			added_live = true
+	for display_i in sessions.size():
+		var i := last_index - display_i
+		var session: Dictionary = sessions[i]
+		var cumulative := int(session.get("cumulative_minutes", 0))
+		_add_session_row_from_columns(
+			day_key,
+			i,
+			[
+				TimeUtils.format_time(TimeUtils.unix_from_iso(str(session.get("start", "")))),
+				TimeUtils.format_time(TimeUtils.unix_from_iso(str(session.get("end", "")))),
+				TimeUtils.format_minutes_hm(int(session.get("minutes", 0))),
+				TimeUtils.format_minutes_hm(cumulative),
+			],
+			true,
+			allow_edit,
+			stripe,
+			cumulative,
+			bool(session.get("edited", false)),
+			i == last_index,
+			i == 0
+		)
+		stripe += 1
 	if sessions.is_empty() and not added_live:
 		_add_no_data_placeholder()
 
@@ -163,7 +169,8 @@ func _add_session_row_from_columns(
 	stripe_index: int = 0,
 	tint_minutes: int = -1,
 	edited: bool = false,
-	appendable: bool = false
+	is_last: bool = false,
+	is_first: bool = false
 ) -> void:
 	var row := SessionRow.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -175,16 +182,25 @@ func _add_session_row_from_columns(
 	row.set_edited(edited)
 	row.set_deletable(deletable)
 	var can_mutate := editable and deletable and session_index >= 0
-	row.set_insertable(can_mutate)
+	# Top green: append on newest, else insert before the newer neighbor above.
+	row.set_appendable(can_mutate and is_last)
+	row.set_gap_above_insert(can_mutate and not is_last)
+	# Bottom green only on oldest: early-morning gap (00:00 → first start).
+	row.set_insertable(can_mutate and is_first)
 	row.set_editable(can_mutate)
-	row.set_appendable(can_mutate and appendable)
 	if deletable and session_index >= 0:
 		row.delete_line_clicked.connect(_on_row_delete_line_clicked.bind(day_key, session_index))
 	if can_mutate:
-		row.insert_line_clicked.connect(_on_row_insert_line_clicked.bind(day_key, session_index))
 		row.edit_line_clicked.connect(_on_row_edit_line_clicked.bind(day_key, session_index))
-	if can_mutate and appendable:
+	if can_mutate and is_last:
 		row.append_line_clicked.connect(_on_row_append_line_clicked.bind(day_key, session_index))
+	if can_mutate and not is_last:
+		# Gap above this row = insert before the newer session (index + 1).
+		row.insert_above_line_clicked.connect(
+			_on_row_insert_line_clicked.bind(day_key, session_index + 1)
+		)
+	if can_mutate and is_first:
+		row.insert_line_clicked.connect(_on_row_insert_line_clicked.bind(day_key, session_index))
 	add_child(row)
 
 

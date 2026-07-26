@@ -80,10 +80,10 @@ func _row_height() -> float:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_nudge(-1)
+			_nudge(1)
 			accept_event()
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_nudge(1)
+			_nudge(-1)
 			accept_event()
 
 

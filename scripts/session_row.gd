@@ -3,11 +3,11 @@ class_name SessionRow
 
 signal delete_line_clicked
 signal insert_line_clicked
+signal insert_above_line_clicked
 signal edit_line_clicked
 signal append_line_clicked
 
 const LINE_THICKNESS_BASE := 5.0
-const CLICK_ZONE_BASE := 10.0
 const ROW_TINT_ALPHA := 0.28
 const EDITED_BADGE := "Ed"
 const EDIT_LINE_COLOR := Color(0.95, 0.82, 0.15, 1.0)
@@ -17,8 +17,12 @@ var _content: HBoxContainer
 var _edited_badge: Label
 var _hovered := false
 var _deletable := true
+## Bottom green: early-morning / insert before this session (oldest row only).
 var _insertable := false
+## Top green when not newest: gap above → insert before the newer neighbor.
+var _gap_above_insert := false
 var _editable := false
+## Top green when newest: append after last → now.
 var _appendable := false
 var _stripe_index := 0
 var _tint_minutes: float = -1.0
@@ -53,27 +57,30 @@ func _ready() -> void:
 
 func set_deletable(enabled: bool) -> void:
 	_deletable = enabled
-	if not _lines_enabled():
-		_hovered = false
-		queue_redraw()
+	_refresh_line_state()
 
 
 func set_insertable(enabled: bool) -> void:
 	_insertable = enabled
-	if not _lines_enabled():
-		_hovered = false
-	queue_redraw()
+	_refresh_line_state()
+
+
+func set_gap_above_insert(enabled: bool) -> void:
+	_gap_above_insert = enabled
+	_refresh_line_state()
 
 
 func set_editable(enabled: bool) -> void:
 	_editable = enabled
-	if not _lines_enabled():
-		_hovered = false
-	queue_redraw()
+	_refresh_line_state()
 
 
 func set_appendable(enabled: bool) -> void:
 	_appendable = enabled
+	_refresh_line_state()
+
+
+func _refresh_line_state() -> void:
 	if not _lines_enabled():
 		_hovered = false
 	queue_redraw()
@@ -157,7 +164,7 @@ func _style_edited_badge(label: Label) -> void:
 
 
 func _lines_enabled() -> bool:
-	return _deletable or _insertable or _editable or _appendable
+	return _deletable or _insertable or _editable or _appendable or _gap_above_insert
 
 
 func _on_mouse_entered() -> void:
@@ -174,8 +181,6 @@ func _on_mouse_exited() -> void:
 
 func _line_thickness() -> float:
 	var base := UiScale.scale(LINE_THICKNESS_BASE)
-	if not _appendable:
-		return base
 	var count := _packed_line_kinds().size()
 	if count <= 1:
 		return base
@@ -184,16 +189,19 @@ func _line_thickness() -> float:
 	return minf(base, max_thickness)
 
 
+## Top→bottom: green (gap above), yellow (edit), red (delete), optional bottom green (oldest).
 func _packed_line_kinds() -> Array[String]:
 	var kinds: Array[String] = []
-	if _insertable:
-		kinds.append("insert")
+	if _appendable:
+		kinds.append("append")
+	elif _gap_above_insert:
+		kinds.append("insert_above")
 	if _editable:
 		kinds.append("edit")
 	if _deletable:
 		kinds.append("delete")
-	if _appendable:
-		kinds.append("append")
+	if _insertable:
+		kinds.append("insert")
 	return kinds
 
 
@@ -217,7 +225,7 @@ func _packed_line_ys() -> Array:
 
 func _color_for_kind(kind: String) -> Color:
 	match kind:
-		"insert", "append":
+		"insert", "insert_above", "append":
 			return INSERT_LINE_COLOR
 		"edit":
 			return EDIT_LINE_COLOR
@@ -231,6 +239,8 @@ func _emit_for_kind(kind: String) -> void:
 	match kind:
 		"insert":
 			insert_line_clicked.emit()
+		"insert_above":
+			insert_above_line_clicked.emit()
 		"edit":
 			edit_line_clicked.emit()
 		"delete":
@@ -243,31 +253,19 @@ func _gui_input(event: InputEvent) -> void:
 	if not _hovered or not _lines_enabled():
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if _appendable:
-			var kinds := _packed_line_kinds()
-			var ys := _packed_line_ys()
-			if kinds.is_empty():
-				return
-			var best_i := 0
-			var best_dist := absf(event.position.y - float(ys[0]))
-			for i in range(1, ys.size()):
-				var dist := absf(event.position.y - float(ys[i]))
-				if dist < best_dist:
-					best_dist = dist
-					best_i = i
-			_emit_for_kind(kinds[best_i])
-			accept_event()
+		var kinds := _packed_line_kinds()
+		var ys := _packed_line_ys()
+		if kinds.is_empty():
 			return
-		var click_zone := UiScale.scale(CLICK_ZONE_BASE)
-		if _insertable and event.position.y <= click_zone:
-			insert_line_clicked.emit()
-			accept_event()
-		elif _deletable and event.position.y >= size.y - click_zone:
-			delete_line_clicked.emit()
-			accept_event()
-		elif _editable:
-			edit_line_clicked.emit()
-			accept_event()
+		var best_i := 0
+		var best_dist := absf(event.position.y - float(ys[0]))
+		for i in range(1, ys.size()):
+			var dist := absf(event.position.y - float(ys[i]))
+			if dist < best_dist:
+				best_dist = dist
+				best_i = i
+		_emit_for_kind(kinds[best_i])
+		accept_event()
 
 
 func _draw() -> void:
@@ -281,23 +279,9 @@ func _draw() -> void:
 			draw_rect(Rect2(Vector2.ZERO, size), stripe)
 	if not _hovered or not _lines_enabled():
 		return
-	if _appendable:
-		var kinds := _packed_line_kinds()
-		var ys := _packed_line_ys()
-		var thickness := _line_thickness()
-		for i in kinds.size():
-			var y := float(ys[i])
-			draw_line(Vector2(0, y), Vector2(size.x, y), _color_for_kind(kinds[i]), thickness)
-		return
+	var kinds := _packed_line_kinds()
+	var ys := _packed_line_ys()
 	var thickness := _line_thickness()
-	if _editable:
-		draw_line(Vector2(0, size.y * 0.5), Vector2(size.x, size.y * 0.5), EDIT_LINE_COLOR, thickness)
-	if _insertable:
-		draw_line(Vector2(0, thickness * 0.5), Vector2(size.x, thickness * 0.5), INSERT_LINE_COLOR, thickness)
-	if _deletable:
-		draw_line(
-			Vector2(0, size.y - thickness * 0.5),
-			Vector2(size.x, size.y - thickness * 0.5),
-			Color.RED,
-			thickness
-		)
+	for i in kinds.size():
+		var y := float(ys[i])
+		draw_line(Vector2(0, y), Vector2(size.x, y), _color_for_kind(kinds[i]), thickness)

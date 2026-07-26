@@ -318,9 +318,9 @@ func delete_session(day_key: String, session_index: int) -> bool:
 	return true
 
 
-## Insert above a finished session.
-## Start min = previous end (or 00:00 for the first row).
-## End max = one minute before this row's start (never touches the next entry).
+## Insert before a finished session (gap toward the older neighbor / early morning).
+## Start min = previous end (or 00:00 for the first session).
+## End max = one minute before this session's start (never touches the next entry).
 func get_insert_gap_above_session(day_key: String, session_index: int) -> Dictionary:
 	if is_session_active():
 		return {"ok": false}

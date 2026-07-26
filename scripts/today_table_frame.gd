@@ -250,7 +250,7 @@ func _sync_layer_sizes() -> void:
 	_table.size = layer_size
 	_table.size.x = width
 
-	# Keep short days pinned to the top unless we're about to jump to the bottom.
+	# Keep short days pinned to the top (newest-first list starts here).
 	if not _pin_to_bottom_pending and not _has_scrollable_overflow():
 		_scroll.scroll_vertical = 0
 	var row_centers := _get_row_centers_y()

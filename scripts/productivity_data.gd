@@ -321,7 +321,7 @@ func get_insert_gap_above_session(day_key: String, session_index: int) -> Dictio
 	if session_index == 0:
 		gap_start = TimeUtils.day_key_to_unix(day_key)
 	else:
-		gap_start = _floor_unix_to_minute(
+		gap_start = _ceil_unix_to_minute(
 			TimeUtils.unix_from_iso(str(day_sessions[session_index - 1].get("end", "")))
 		)
 	if gap_end - gap_start < 60:
@@ -336,17 +336,21 @@ func get_insert_gap_above_session(day_key: String, session_index: int) -> Dictio
 
 
 ## Append after the last finished session of the day.
-## Start is fixed at that session's end; end may run up to 23:59 the same day.
+## Start is fixed at that session's end (rounded up to the next free minute);
+## end may run up to 23:59 the same day.
 func get_insert_gap_after_session(day_key: String, session_index: int) -> Dictionary:
 	if is_session_active():
 		return {"ok": false}
 	var day_sessions: Array = get_sessions_for_day(day_key)
 	if session_index < 0 or session_index != day_sessions.size() - 1:
 		return {"ok": false}
-	var gap_start := _floor_unix_to_minute(
-		TimeUtils.unix_from_iso(str(day_sessions[session_index].get("end", "")))
-	)
+	var raw_end := TimeUtils.unix_from_iso(str(day_sessions[session_index].get("end", "")))
+	# Push ends mid-minute; start after the real end so we never overlap on save.
+	var gap_start := _ceil_unix_to_minute(raw_end)
 	var gap_end := TimeUtils.clock_on_productivity_day(day_key, 23, 59)
+	var next_midnight := TimeUtils.day_key_to_unix(TimeUtils.next_day_key(day_key))
+	if gap_start >= next_midnight or gap_start > gap_end:
+		return {"ok": false}
 	if gap_end - gap_start < 60:
 		return {"ok": false}
 	return {
@@ -361,6 +365,8 @@ func get_insert_gap_after_session(day_key: String, session_index: int) -> Dictio
 func insert_manual_session(day_key: String, start_unix: int, end_unix: int) -> bool:
 	if is_session_active():
 		return false
+	start_unix = _floor_unix_to_minute(start_unix)
+	end_unix = _floor_unix_to_minute(end_unix)
 	if end_unix - start_unix < 60:
 		return false
 	var segments: Array = TimeUtils.split_session_at_day_boundaries(start_unix, end_unix)
@@ -376,6 +382,7 @@ func insert_manual_session(day_key: String, start_unix: int, end_unix: int) -> b
 		for session in get_sessions_for_day(seg_day):
 			var existing_start := TimeUtils.unix_from_iso(str(session.get("start", "")))
 			var existing_end := TimeUtils.unix_from_iso(str(session.get("end", "")))
+			# Treat stored sessions as [start, end); new block must not intersect.
 			if seg_start < existing_end and seg_end > existing_start:
 				return false
 	var touched: Dictionary = {}
@@ -413,7 +420,7 @@ func get_edit_bounds(day_key: String, session_index: int) -> Dictionary:
 	if session_index == 0:
 		min_start = TimeUtils.day_key_to_unix(day_key)
 	else:
-		min_start = _floor_unix_to_minute(
+		min_start = _ceil_unix_to_minute(
 			TimeUtils.unix_from_iso(str(day_sessions[session_index - 1].get("end", "")))
 		)
 	var max_end: int
@@ -470,6 +477,13 @@ func update_manual_session(
 
 func _floor_unix_to_minute(unix: int) -> int:
 	return unix - (unix % 60)
+
+
+## Next minute boundary at or after unix (unchanged if already on a minute).
+func _ceil_unix_to_minute(unix: int) -> int:
+	if unix % 60 == 0:
+		return unix
+	return unix - (unix % 60) + 60
 
 
 func _sort_day_sessions(day_key: String) -> void:

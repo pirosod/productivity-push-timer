@@ -64,31 +64,54 @@ func _build_day_rows(day_key: String, include_active: bool) -> void:
 			bool(session.get("edited", false)),
 			allow_edit and i == last_index
 		)
+	var added_live := false
 	if include_active and ProductivityData.is_session_active():
 		var start_unix := ProductivityData.get_session_start_unix()
 		var live_for_day := ProductivityData.get_live_minutes_for_day(day_key)
-		if live_for_day <= 0 and TimeUtils.get_productivity_day_key(start_unix) != day_key:
-			return
-		var show_start := start_unix
-		if TimeUtils.get_productivity_day_key(start_unix) != day_key:
-			show_start = TimeUtils.day_key_to_unix(day_key)
-		var live_logged := live_for_day - ProductivityData.get_day_total_minutes(day_key)
-		_add_session_row_from_columns(
-			day_key,
-			-1,
-			[
-				TimeUtils.format_time(show_start),
-				"...",
-				TimeUtils.format_minutes_hm(maxi(live_logged, 0)),
-				TimeUtils.format_minutes_hm(live_for_day),
-			],
-			false,
-			false,
-			sessions.size(),
-			live_for_day,
-			false,
-			false
-		)
+		if live_for_day > 0 or TimeUtils.get_productivity_day_key(start_unix) == day_key:
+			var show_start := start_unix
+			if TimeUtils.get_productivity_day_key(start_unix) != day_key:
+				show_start = TimeUtils.day_key_to_unix(day_key)
+			var live_logged := live_for_day - ProductivityData.get_day_total_minutes(day_key)
+			_add_session_row_from_columns(
+				day_key,
+				-1,
+				[
+					TimeUtils.format_time(show_start),
+					"...",
+					TimeUtils.format_minutes_hm(maxi(live_logged, 0)),
+					TimeUtils.format_minutes_hm(live_for_day),
+				],
+				false,
+				false,
+				sessions.size(),
+				live_for_day,
+				false,
+				false
+			)
+			added_live = true
+	if sessions.is_empty() and not added_live:
+		_add_no_data_placeholder()
+
+
+func _add_no_data_placeholder() -> void:
+	var row := Control.new()
+	row.name = "NoDataPlaceholder"
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.custom_minimum_size = Vector2(0, TodayChartStyle.row_height())
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var label := Label.new()
+	label.text = "no data"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_style_label(label)
+	var muted := UiScale.text_color()
+	muted.a = 0.45
+	label.add_theme_color_override("font_color", muted)
+	row.add_child(label)
+	add_child(row)
 
 
 func _clear_rows() -> void:

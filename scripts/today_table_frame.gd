@@ -23,7 +23,9 @@ var _snap_timer: float = 0.0
 var _snap_tween: Tween
 var _current_day_key: String = ""
 var _include_live: bool = false
-var _scroll_to_latest_pending: bool = false
+var _pin_to_bottom_pending: bool = false
+var _pin_to_top_pending: bool = false
+var _preserved_scroll: int = 0
 
 
 func _ready() -> void:
@@ -104,10 +106,17 @@ func get_session_table() -> SessionTable:
 	return _table
 
 
-func build_for_day(day_key: String, include_active: bool = false, scroll_to_latest: bool = false) -> void:
+func build_for_day(
+	day_key: String,
+	include_active: bool = false,
+	pin_to_bottom: bool = false,
+	pin_to_top: bool = false
+) -> void:
 	_current_day_key = day_key
 	_include_live = include_active
-	_scroll_to_latest_pending = scroll_to_latest
+	_pin_to_bottom_pending = pin_to_bottom
+	_pin_to_top_pending = pin_to_top and not pin_to_bottom
+	_preserved_scroll = _scroll.scroll_vertical if is_instance_valid(_scroll) else 0
 	_reset_rubber()
 	_table.build_header_row(_header_row)
 	_table.build_today_body(day_key, include_active)
@@ -115,16 +124,46 @@ func build_for_day(day_key: String, include_active: bool = false, scroll_to_late
 
 
 func _finish_build_layout() -> void:
+	_ensure_scroll_viewport_height()
 	_sync_layer_sizes()
-	if _scroll_to_latest_pending:
-		_scroll_to_latest_pending = false
-		call_deferred("_scroll_to_latest")
+	if _pin_to_bottom_pending:
+		call_deferred("_scroll_to_bottom")
+	elif _pin_to_top_pending:
+		_scroll.scroll_vertical = 0
+		_rubber_offset = 0.0
+		_sync_scroll_content_position()
+		_pin_to_top_pending = false
+	else:
+		# Live refresh: keep the user's place in the list.
+		var bar := _scroll.get_v_scroll_bar()
+		_scroll.scroll_vertical = int(clampf(float(_preserved_scroll), bar.min_value, bar.max_value))
+		_sync_scroll_content_position()
 
 
-func _scroll_to_latest() -> void:
+func _scroll_to_bottom() -> void:
+	_ensure_scroll_viewport_height()
+	_sync_layer_sizes()
 	var bar := _scroll.get_v_scroll_bar()
-	_scroll.scroll_vertical = int(bar.max_value)
+	if not _has_scrollable_overflow():
+		_scroll.scroll_vertical = 0
+		_pin_to_bottom_pending = false
+	else:
+		_scroll.scroll_vertical = int(bar.max_value)
+		# Scrollbar max can lag one frame behind content size — retry once.
+		if bar.max_value <= 0.5:
+			call_deferred("_scroll_to_bottom_finalize")
+			return
+		_pin_to_bottom_pending = false
 	_rubber_offset = 0.0
+	_sync_scroll_content_position()
+
+
+func _scroll_to_bottom_finalize() -> void:
+	_sync_layer_sizes()
+	var bar := _scroll.get_v_scroll_bar()
+	_scroll.scroll_vertical = int(bar.max_value) if _has_scrollable_overflow() else 0
+	_rubber_offset = 0.0
+	_pin_to_bottom_pending = false
 	_sync_scroll_content_position()
 
 
@@ -157,6 +196,33 @@ func _visible_body_height() -> int:
 	return TodayChartStyle.row_height() * VISIBLE_DATA_ROWS
 
 
+func _ensure_scroll_viewport_height() -> void:
+	var h := float(_visible_body_height())
+	_scroll.custom_minimum_size.y = h
+	# Keep the today box body height stable even with 0–few rows.
+	if _scroll.size.y < h - 0.5:
+		_scroll.size.y = h
+
+
+## Height from current rows only — ignores leftover custom_minimum_size from taller days.
+func _content_height() -> float:
+	var row_h := float(TodayChartStyle.row_height())
+	var count := 0
+	for child in _table.get_children():
+		if child is Control and child.visible:
+			count += 1
+	if count <= 0:
+		return 0.0
+	var sep := 0.0
+	if count > 1:
+		sep = float(_table.get_theme_constant("separation")) * float(count - 1)
+	return float(count) * row_h + sep
+
+
+func _has_scrollable_overflow() -> bool:
+	return _content_height() > maxf(_scroll.size.y, float(_visible_body_height())) + 0.5
+
+
 func _max_overscroll() -> float:
 	return UiScale.scale(MAX_OVERSCROLL_BASE)
 
@@ -166,18 +232,27 @@ func _wheel_step() -> float:
 
 
 func _sync_layer_sizes() -> void:
-	var content_height := _table.get_combined_minimum_size().y
-	if content_height <= 0:
-		content_height = _table.size.y
-	_scroll_content.custom_minimum_size = Vector2(0, content_height)
+	_ensure_scroll_viewport_height()
+	# Drop inflated mins/sizes left over from a previously taller day.
+	_table.custom_minimum_size = Vector2(0, 0)
+	_scroll_content.custom_minimum_size = Vector2(0, 0)
+	_chart.custom_minimum_size = Vector2(0, 0)
+
+	var content_height := _content_height()
 	var width := maxf(_scroll.size.x, 1.0)
-	var layer_size := Vector2(width, float(content_height))
+	var layer_size := Vector2(width, content_height)
+
+	_scroll_content.custom_minimum_size = Vector2(0, content_height)
 	_scroll_content.size = layer_size
 	_chart.custom_minimum_size = Vector2(0, 0)
 	_chart.size = layer_size
 	_table.custom_minimum_size = Vector2(0, content_height)
 	_table.size = layer_size
 	_table.size.x = width
+
+	# Keep short days pinned to the top unless we're about to jump to the bottom.
+	if not _pin_to_bottom_pending and not _has_scrollable_overflow():
+		_scroll.scroll_vertical = 0
 	var row_centers := _get_row_centers_y()
 	_chart.configure(_current_day_key, _include_live, row_centers)
 	_vertex_front.configure(_current_day_key, _include_live, row_centers)
@@ -213,18 +288,26 @@ func _on_scroll_gui_input(event: InputEvent) -> void:
 
 
 func _wheel_event_handled(direction: int) -> bool:
+	if not _has_scrollable_overflow():
+		return true
 	var bar := _scroll.get_v_scroll_bar()
-	var at_top := bar.max_value <= 0.0 or bar.value <= bar.min_value + 0.5
-	var at_bottom := bar.max_value <= 0.0 or bar.value >= bar.max_value - 0.5
+	var at_top := bar.value <= bar.min_value + 0.5
+	var at_bottom := bar.value >= bar.max_value - 0.5
 	var on_rubber := absf(_rubber_offset) > 0.01
 	var on_edge := (direction > 0 and at_bottom) or (direction < 0 and at_top)
 	return on_rubber or on_edge
 
 
 func _apply_wheel_scroll(direction: int) -> void:
+	# Not enough rows to scroll: stay pinned to top, rubberband both ways.
+	if not _has_scrollable_overflow():
+		_scroll.scroll_vertical = 0
+		_handle_scroll_direction(direction)
+		return
+
 	var bar := _scroll.get_v_scroll_bar()
-	var at_top := bar.max_value <= 0.0 or bar.value <= bar.min_value + 0.5
-	var at_bottom := bar.max_value <= 0.0 or bar.value >= bar.max_value - 0.5
+	var at_top := bar.value <= bar.min_value + 0.5
+	var at_bottom := bar.value >= bar.max_value - 0.5
 	var on_edge := (direction > 0 and at_bottom) or (direction < 0 and at_top)
 
 	if absf(_rubber_offset) > 0.01 or on_edge:

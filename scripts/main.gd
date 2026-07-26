@@ -762,7 +762,10 @@ func _refresh_today_table(scroll_to_latest: bool = false) -> void:
 	var day_key := _selected_chart_day if not _selected_chart_day.is_empty() else today_key
 	var is_today := day_key == today_key
 	var include_live := is_today and ProductivityData.is_session_active()
-	_today_table_frame.build_for_day(day_key, include_live, scroll_to_latest and is_today)
+	# Today navigate/refresh → bottom; older days → top; live tick → keep position.
+	var pin_to_bottom := is_today and scroll_to_latest
+	var pin_to_top := not is_today
+	_today_table_frame.build_for_day(day_key, include_live, pin_to_bottom, pin_to_top)
 	_today_header.text = "Today" if is_today else TimeUtils.format_day_label(day_key)
 	_today_marker_legend.configure(day_key, include_live)
 

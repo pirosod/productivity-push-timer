@@ -146,8 +146,9 @@ func _hour_has_any_valid(hour: int) -> bool:
 	return not _valid_unix_for_hour(hour).is_empty()
 
 
-## After a wheel nudge: keep exact time if valid; else snap minutes to :00,
-## or to the clamp edge when :00 is not available in that hour.
+## After a wheel nudge: keep exact time if valid; else snap lower digits.
+## When hour-tens changes (e.g. 0→1 while units are still 8), adjust units/minutes
+## so the new tens digit sticks (10:00) instead of snapping back to the old hour.
 func _resolve_unix_from_wheels() -> int:
 	var hour := _wheel_hour()
 	var minute := _wheel_minute()
@@ -156,9 +157,30 @@ func _resolve_unix_from_wheels() -> int:
 		return _pick_closest_unix(exact, _unix)
 
 	var hour_candidates := _valid_unix_for_hour(hour)
-	if hour_candidates.is_empty():
-		return clampi(_unix, _min_unix, _max_unix)
+	if not hour_candidates.is_empty():
+		return _snap_within_hour(hour, hour_candidates)
 
+	# Composed hour invalid (tens 1 + units 8 → 18). Keep the tens digit.
+	var hour_tens := _hour_tens.get_digit()
+	var tens_candidates := _valid_unix_for_hour_tens(hour_tens)
+	if not tens_candidates.is_empty():
+		return _snap_within_hour_tens(hour_tens, tens_candidates)
+
+	return clampi(_unix, _min_unix, _max_unix)
+
+
+func _valid_unix_for_hour_tens(tens: int) -> Array:
+	var results: Array = []
+	for hu in range(10):
+		var hour := tens * 10 + hu
+		if hour > 23:
+			continue
+		for unix in _valid_unix_for_hour(hour):
+			results.append(unix)
+	return results
+
+
+func _snap_within_hour(hour: int, hour_candidates: Array) -> int:
 	var zero := _unix_candidates_for_clock(hour, 0)
 	if not zero.is_empty():
 		return _pick_closest_unix(zero, _unix)
@@ -172,13 +194,34 @@ func _resolve_unix_from_wheels() -> int:
 
 	var hour_start := TimeUtils.clock_on_productivity_day(_day_key, hour, 0)
 	var hour_end := TimeUtils.clock_on_productivity_day(_day_key, hour, 59)
-	# Clipped by the early bound (e.g. jump to 01:xx when min is 01:45) → 01:45.
 	if c_min > hour_start or c_min == _min_unix:
 		return c_min
-	# Clipped by the late bound (e.g. jump to 09:xx when max is 09:09) → 09:09.
 	if c_max < hour_end or c_max == _max_unix:
 		return c_max
 	return _pick_closest_unix(hour_candidates, _unix)
+
+
+func _snap_within_hour_tens(tens: int, tens_candidates: Array) -> int:
+	# Prefer the earliest :00 in this tens band (10:00, then 11:00, …).
+	for hu in range(10):
+		var hour := tens * 10 + hu
+		if hour > 23:
+			continue
+		var zero := _unix_candidates_for_clock(hour, 0)
+		if not zero.is_empty():
+			return _pick_closest_unix(zero, _unix)
+
+	var c_min := int(tens_candidates[0])
+	var c_max := c_min
+	for unix in tens_candidates:
+		var u := int(unix)
+		c_min = mini(c_min, u)
+		c_max = maxi(c_max, u)
+	if _unix < c_min:
+		return c_min
+	if _unix > c_max:
+		return c_max
+	return _pick_closest_unix(tens_candidates, _unix)
 
 
 func _apply_unix_to_wheels(animate: bool) -> void:

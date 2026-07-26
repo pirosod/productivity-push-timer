@@ -49,8 +49,7 @@ func _process(_delta: float) -> void:
 	if minute == _last_bound_minute:
 		return
 	_last_bound_minute = minute
-	_gap_end = now_unix - (now_unix % 60)
-	_sync_dependent_bounds()
+	_apply_live_now_end_bound(now_unix)
 
 
 func _ensure_built() -> void:
@@ -170,11 +169,7 @@ func open_for_gap(
 	apply_theme()
 	visible = true
 	move_to_front()
-	if _tracks_now:
-		_last_bound_minute = int(Time.get_unix_time_from_system() / 60)
-		set_process(true)
-	else:
-		set_process(false)
+	_begin_live_now_tracking()
 
 
 func open_for_edit(
@@ -212,11 +207,29 @@ func open_for_edit(
 	apply_theme()
 	visible = true
 	move_to_front()
-	if _tracks_now:
-		_last_bound_minute = int(Time.get_unix_time_from_system() / 60)
-		set_process(true)
-	else:
+	_begin_live_now_tracking()
+
+
+func _begin_live_now_tracking() -> void:
+	if not _tracks_now:
+		_last_bound_minute = -1
 		set_process(false)
+		return
+	var now_unix := int(Time.get_unix_time_from_system())
+	_last_bound_minute = int(now_unix / 60)
+	_apply_live_now_end_bound(now_unix)
+	set_process(true)
+
+
+## Cap end (and dependent start max) at the current minute; never past 23:59 of the day.
+## Expanding the max refreshes green/red wheel digits so the new minute becomes scrollable.
+func _apply_live_now_end_bound(now_unix: int = -1) -> void:
+	if now_unix < 0:
+		now_unix = int(Time.get_unix_time_from_system())
+	var now_floor := now_unix - (now_unix % 60)
+	var day_end := TimeUtils.clock_on_productivity_day(_day_key, 23, 59)
+	_gap_end = mini(day_end, now_floor)
+	_sync_dependent_bounds()
 
 
 func is_edit_mode() -> bool:

@@ -352,7 +352,7 @@ func get_insert_gap_above_session(day_key: String, session_index: int) -> Dictio
 
 ## Append after the last finished session of the day.
 ## Start min = that session's end (rounded up to the next free minute);
-## start max = 23:58; end may run up to 23:59 the same day.
+## start max = one minute before end max; end max = 23:59, or "now" when editing today.
 func get_insert_gap_after_session(day_key: String, session_index: int) -> Dictionary:
 	if is_session_active():
 		return {"ok": false}
@@ -363,6 +363,9 @@ func get_insert_gap_after_session(day_key: String, session_index: int) -> Dictio
 	# Push ends mid-minute; start after the real end so we never overlap on save.
 	var gap_start := _ceil_unix_to_minute(raw_end)
 	var gap_end := TimeUtils.clock_on_productivity_day(day_key, 23, 59)
+	var tracks_now := day_key == TimeUtils.get_productivity_day_key_now()
+	if tracks_now:
+		gap_end = mini(gap_end, _floor_unix_to_minute(int(Time.get_unix_time_from_system())))
 	var next_midnight := TimeUtils.day_key_to_unix(TimeUtils.next_day_key(day_key))
 	if gap_start >= next_midnight or gap_start > gap_end:
 		return {"ok": false}
@@ -372,7 +375,7 @@ func get_insert_gap_after_session(day_key: String, session_index: int) -> Dictio
 		"ok": true,
 		"start_unix": gap_start,
 		"end_unix": gap_end,
-		"tracks_now": false,
+		"tracks_now": tracks_now,
 		"lock_start": false,
 		"append_mode": true,
 	}
@@ -416,6 +419,7 @@ func insert_manual_session(day_key: String, start_unix: int, end_unix: int) -> b
 
 ## Bounds for editing a finished session.
 ## Start min = previous end (or 00:00). End max = next start − 1 min (or 23:59).
+## On today's last row, end max is also capped at the current minute (live).
 ## Never overlaps neighbors; a lost edge minute is intentional.
 func get_edit_bounds(day_key: String, session_index: int) -> Dictionary:
 	if is_session_active():
@@ -439,14 +443,19 @@ func get_edit_bounds(day_key: String, session_index: int) -> Dictionary:
 		min_start = _ceil_unix_to_minute(
 			TimeUtils.unix_from_iso(str(day_sessions[session_index - 1].get("end", "")))
 		)
+	var is_last := session_index >= day_sessions.size() - 1
 	var max_end: int
-	if session_index < day_sessions.size() - 1:
+	var tracks_now := false
+	if not is_last:
 		var next_start := _floor_unix_to_minute(
 			TimeUtils.unix_from_iso(str(day_sessions[session_index + 1].get("start", "")))
 		)
 		max_end = next_start - 60
 	else:
 		max_end = TimeUtils.clock_on_productivity_day(day_key, 23, 59)
+		if day_key == TimeUtils.get_productivity_day_key_now():
+			max_end = mini(max_end, _floor_unix_to_minute(int(Time.get_unix_time_from_system())))
+			tracks_now = true
 	if max_end - min_start < 60:
 		return {"ok": false}
 	return {
@@ -455,7 +464,7 @@ func get_edit_bounds(day_key: String, session_index: int) -> Dictionary:
 		"max_end": max_end,
 		"original_start": original_start,
 		"original_end": original_end,
-		"tracks_now": false,
+		"tracks_now": tracks_now,
 	}
 
 

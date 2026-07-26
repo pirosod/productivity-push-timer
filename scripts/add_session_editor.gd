@@ -13,6 +13,7 @@ var _gap_start: int = 0
 var _gap_end: int = 0
 var _tracks_now := false
 var _lock_start := false
+var _append_mode := false
 var _last_bound_minute := -1
 var _backdrop: ColorRect
 var _panel: PanelContainer
@@ -132,7 +133,8 @@ func open_for_gap(
 	gap_start: int,
 	gap_end: int,
 	tracks_now: bool = false,
-	lock_start: bool = false
+	lock_start: bool = false,
+	append_mode: bool = false
 ) -> void:
 	_ensure_built()
 	_mode = Mode.ADD
@@ -141,14 +143,16 @@ func open_for_gap(
 	_gap_end = gap_end
 	_tracks_now = tracks_now
 	_lock_start = lock_start
+	_append_mode = append_mode
 	_title.text = "Add session entry"
 	_start_picker.clear_logged_time_range()
 	_end_picker.clear_logged_time_range()
 	var default_start := gap_start
+	# Unlocked start may go up to one minute before gap_end (e.g. 23:58 when end is 23:59).
 	var start_max := gap_start if _lock_start else maxi(gap_end - 60, gap_start)
 	var default_end: int
-	if _lock_start:
-		# Append after: start locked; end defaults to +1 minute.
+	if _lock_start or _append_mode:
+		# Append after: end defaults to +1 minute (start may still scroll).
 		default_end = mini(gap_start + 60, gap_end)
 		if default_end <= default_start:
 			default_end = gap_end
@@ -188,6 +192,7 @@ func open_for_edit(
 	_gap_end = max_end
 	_tracks_now = tracks_now
 	_lock_start = false
+	_append_mode = false
 	_title.text = "Modify entry"
 	_start_picker.set_logged_time_range(original_start, original_end)
 	_end_picker.set_logged_time_range(original_start, original_end)

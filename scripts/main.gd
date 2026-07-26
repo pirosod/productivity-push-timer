@@ -72,6 +72,9 @@ var _pending_edit_day_key := ""
 var _pending_edit_index := -1
 var _last_summary_refresh_minute := -1
 var _main_layout_ready := false
+var _history_label_hovered := false
+
+const HISTORY_HOVER_OUTLINE := Color(1.0, 0.45, 0.05, 1.0)
 
 
 func _ready() -> void:
@@ -94,6 +97,10 @@ func _ready() -> void:
 	_text_control.sizes_changed.connect(_on_text_sizes_changed)
 	_marker_control.sizes_changed.connect(_on_marker_sizes_changed)
 	_visual_tweaks.tweaks_changed.connect(_sync_main_layout)
+	_timer_label.mouse_entered.connect(_on_timer_label_mouse_entered)
+	_timer_label.mouse_exited.connect(_on_timer_label_mouse_exited)
+	_timer_label.gui_input.connect(_on_timer_label_gui_input)
+	_timer_label.draw.connect(_on_timer_label_draw)
 	_setup_goal_pickers()
 	_apply_header_button_sizes()
 	_timer_label.add_theme_font_size_override("font_size", _text_control.timer_font_size())
@@ -495,7 +502,8 @@ func _open_add_session_editor() -> void:
 		int(gap.get("start_unix", 0)),
 		int(gap.get("end_unix", 0)),
 		bool(gap.get("tracks_now", false)),
-		bool(gap.get("lock_start", false))
+		bool(gap.get("lock_start", false)),
+		bool(gap.get("append_mode", false))
 	)
 	_add_session_editor.apply_theme()
 
@@ -709,6 +717,8 @@ func _apply_header_center_mode(history_mode: bool, text_color: Color) -> void:
 		var history_font := maxi(UiScale.scale_i(14), int(round(float(_text_control.timer_font_size()) * 0.58)))
 		_timer_label.add_theme_font_size_override("font_size", history_font)
 		_timer_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		_timer_label.mouse_filter = Control.MOUSE_FILTER_STOP
+		_timer_label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var back_font := maxi(UiScale.scale_i(12), int(round(float(_text_control.snooze_button_font_size()) * 0.72)))
 		_apply_button_theme(_back_button, text_color, back_font)
 		var label_h := float(history_font) * 1.25
@@ -720,13 +730,52 @@ func _apply_header_center_mode(history_mode: bool, text_color: Color) -> void:
 		_back_button.custom_minimum_size = Vector2(0, back_h)
 		_back_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	else:
+		_history_label_hovered = false
 		_header_center.add_theme_constant_override("separation", 4)
 		_header_center.alignment = BoxContainer.ALIGNMENT_CENTER
 		_header_center.size_flags_vertical = Control.SIZE_FILL
 		_timer_label.add_theme_font_size_override("font_size", _text_control.timer_font_size())
 		_timer_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		_timer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_timer_label.mouse_default_cursor_shape = Control.CURSOR_ARROW
 		_back_button.custom_minimum_size = Vector2(0, UiScale.scale(28.0))
 		_apply_button_theme(_back_button, text_color, _text_control.snooze_button_font_size())
+	_timer_label.queue_redraw()
+
+
+func _on_timer_label_mouse_entered() -> void:
+	if not _is_history_mode():
+		return
+	_history_label_hovered = true
+	_timer_label.queue_redraw()
+
+
+func _on_timer_label_mouse_exited() -> void:
+	_history_label_hovered = false
+	_timer_label.queue_redraw()
+
+
+func _on_timer_label_gui_input(event: InputEvent) -> void:
+	if not _is_history_mode():
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		ProductivityData.open_data_folder()
+		_timer_label.accept_event()
+
+
+func _on_timer_label_draw() -> void:
+	# Draw inside the existing label rect only — never change min size / header layout.
+	if not _history_label_hovered or not _is_history_mode():
+		return
+	var thickness := maxf(2.0, UiScale.scale(2.0))
+	var half := thickness * 0.5
+	var rect := Rect2(
+		Vector2(half, half),
+		_timer_label.size - Vector2(thickness, thickness)
+	)
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	_timer_label.draw_rect(rect, HISTORY_HOVER_OUTLINE, false, thickness)
 
 
 func _apply_button_theme(button: Button, text_color: Color, font_size: int) -> void:

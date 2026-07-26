@@ -72,6 +72,20 @@ func _data_dir_path() -> String:
 	return _game_root_path() + DATA_FOLDER_NAME + "/"
 
 
+func get_data_dir_path() -> String:
+	return _data_dir_path()
+
+
+func open_data_folder() -> void:
+	_ensure_data_dir()
+	var path := _data_dir_path()
+	# Prefer the file manager highlight API when available; fall back to shell open.
+	if OS.has_method("shell_show_in_file_manager"):
+		OS.shell_show_in_file_manager(path, true)
+	else:
+		OS.shell_open(path)
+
+
 func _data_file_path() -> String:
 	return _data_dir_path() + DATA_FILE_NAME
 
@@ -332,12 +346,13 @@ func get_insert_gap_above_session(day_key: String, session_index: int) -> Dictio
 		"end_unix": gap_end,
 		"tracks_now": false,
 		"lock_start": false,
+		"append_mode": false,
 	}
 
 
 ## Append after the last finished session of the day.
-## Start is fixed at that session's end (rounded up to the next free minute);
-## end may run up to 23:59 the same day.
+## Start min = that session's end (rounded up to the next free minute);
+## start max = 23:58; end may run up to 23:59 the same day.
 func get_insert_gap_after_session(day_key: String, session_index: int) -> Dictionary:
 	if is_session_active():
 		return {"ok": false}
@@ -358,7 +373,8 @@ func get_insert_gap_after_session(day_key: String, session_index: int) -> Dictio
 		"start_unix": gap_start,
 		"end_unix": gap_end,
 		"tracks_now": false,
-		"lock_start": true,
+		"lock_start": false,
+		"append_mode": true,
 	}
 
 

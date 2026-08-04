@@ -201,6 +201,12 @@ static func vertex_color_for_minutes(minutes: float) -> Color:
 	return Color(0.65, 0.35, 0.9, 1.0)
 
 
+## Yellow goal band: above medium goal, up to and including high goal.
+static func is_yellow_band(minutes: float) -> bool:
+	var hours := minutes / 60.0
+	return hours > ProductivityData.medium_goal_hours and hours <= ProductivityData.high_goal_hours
+
+
 static func vertex_color_for_chart_x(x: float, plot_rect: Rect2, max_minutes: int) -> Color:
 	var ratio := clampf((x - plot_rect.position.x) / maxf(plot_rect.size.x, 1.0), 0.0, 1.0)
 	var minutes := ratio * float(maxi(max_minutes, 1))

@@ -14,17 +14,20 @@ var _selected_monday_key: String = ""
 var _hovered_monday_key: String = ""
 var _row_panels: Dictionary = {}  # monday_key -> PanelContainer
 var _week_by_monday: Dictionary = {}  # monday_key -> week dict
+var _row_fx: Dictionary = {}  # monday_key -> ElectricityRowOverlay
 
 
 func refresh() -> void:
 	_hovered_monday_key = ""
 	_row_panels.clear()
 	_week_by_monday.clear()
+	_row_fx.clear()
 	_clear_rows()
 	_add_header_row()
 	for week in _build_weeks_newest_first():
 		_add_data_row(week)
 	_apply_all_row_styles()
+	_refresh_row_electricity()
 
 
 func set_selected_monday(monday_key: String) -> void:
@@ -45,6 +48,18 @@ func get_selected_monday() -> String:
 func get_week_for_monday(monday_key: String) -> Dictionary:
 	return _week_by_monday.get(monday_key, {})
 
+
+func _refresh_row_electricity() -> void:
+	for monday_key in _row_fx.keys():
+		var week: Dictionary = _week_by_monday.get(monday_key, {})
+		var overlay: ElectricityRowOverlay = _row_fx[monday_key]
+		if not is_instance_valid(overlay):
+			continue
+		var yellow := (
+			not week.is_empty()
+			and TodayChartStyle.is_yellow_band(float(week.get("daily_avg_minutes", 0)))
+		)
+		overlay.set_active(yellow)
 
 func _build_weeks_newest_first() -> Array:
 	var today_key := TimeUtils.get_productivity_day_key_now()
@@ -158,7 +173,16 @@ func _add_data_row(week: Dictionary) -> void:
 		TimeUtils.format_minutes_hm(int(week["week_total_minutes"])),
 		bool(week["is_extrapolated"])
 	)
-	panel.add_child(row)
+	var stack := Control.new()
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stack.custom_minimum_size.y = TodayChartStyle.row_height()
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stack.add_child(row)
+	var overlay := ElectricityRowOverlay.new()
+	stack.add_child(overlay)
+	panel.add_child(stack)
+	_row_fx[monday_key] = overlay
 	add_child(panel)
 	_row_panels[monday_key] = panel
 	_week_by_monday[monday_key] = week

@@ -14,6 +14,7 @@
 [ext_resource type="Script" uid="uid://casy6x0faogv8" path="res://scripts/week_summary.gd" id="12_week_summary"]
 [ext_resource type="Script" uid="uid://bdor8syibwimm" path="res://scripts/visual_tweaks_control.gd" id="13_visual_tweaks"]
 [ext_resource type="Script" uid="uid://by5qbtiblpdl4" path="res://scripts/add_session_editor.gd" id="14_add_editor"]
+[ext_resource type="Script" path="res://scripts/electricity_control.gd" id="18_electricity"]
 [ext_resource type="Script" uid="uid://djtvpfb1ahgqo" path="res://scripts/week_chart_frame.gd" id="15_week_frame"]
 [ext_resource type="Script" uid="uid://dablsk2aav42r" path="res://scripts/today_top_shade.gd" id="16_today_shade"]
 [ext_resource type="Script" uid="uid://2ji83kyw8vme" path="res://scripts/today_box_stack.gd" id="17_today_stack"]
@@ -395,3 +396,6 @@ script = ExtResource("10_marker")
 [node name="Visual tweaks" type="Node" parent="AppControls" unique_id=217508550]
 script = ExtResource("13_visual_tweaks")
 scroll_top_spacing = 8.0
+
+[node name="Electricity" type="Node" parent="AppControls"]
+script = ExtResource("18_electricity")

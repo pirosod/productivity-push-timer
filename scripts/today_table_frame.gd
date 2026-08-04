@@ -58,6 +58,7 @@ func _ready() -> void:
 	_table.session_insert_requested.connect(_forward_insert_request)
 	_table.session_append_requested.connect(_forward_append_request)
 	_table.session_edit_requested.connect(_forward_edit_request)
+	_vertex_front.set_session_table(_table)
 	_scroll.get_v_scroll_bar().value_changed.connect(_on_scroll_value_changed)
 	_scroll.resized.connect(_sync_layer_sizes)
 	_scroll.clip_contents = true

@@ -27,6 +27,7 @@ var _label_layout_signature: String = ""
 var _calendar_monday_key: String = ""
 ## Days strictly before this key are greyscale / non-interactive (first partial week).
 var _locked_before_key: String = ""
+var _fx := YellowElectricityFx.new()
 
 
 func _ready() -> void:
@@ -36,14 +37,23 @@ func _ready() -> void:
 	set_process(true)
 
 
-func _process(_delta: float) -> void:
-	if not ProductivityData.is_session_active():
-		return
-	var live_minute := ProductivityData.get_live_session_minutes()
-	if live_minute != _last_live_minute:
-		_last_live_minute = live_minute
+func _process(delta: float) -> void:
+	var ctrl := ElectricityControl.get_instance()
+	var need_redraw := false
+	if ProductivityData.is_session_active():
+		var live_minute := ProductivityData.get_live_session_minutes()
+		if live_minute != _last_live_minute:
+			_last_live_minute = live_minute
+			need_redraw = true
+	if ctrl != null and ctrl.is_on() and not _day_keys.is_empty():
+		_sync_electricity_targets()
+		_fx.process(delta, ctrl)
+		need_redraw = true
+	elif not _fx.has_activity():
+		_fx.clear()
+		need_redraw = true
+	if need_redraw:
 		queue_redraw()
-
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
@@ -367,6 +377,79 @@ func _draw() -> void:
 		if not bool(dot["locked"]):
 			_draw_vertex_time_label(dot)
 		draw_circle(dot["center"], radius, dot["color"])
+
+	var ctrl := ElectricityControl.get_instance()
+	if ctrl != null and ctrl.is_on():
+		_fx.draw(self, ctrl)
+
+
+func _sync_electricity_targets() -> void:
+	var entries: Array = []
+	var view := Rect2(Vector2.ZERO, size).grow(UiScale.scale(4.0))
+	var chart_rect := _get_chart_rect()
+	var plot_rect := _get_plot_rect(chart_rect)
+	var box_width := _get_box_width(plot_rect)
+	var radius := UiScale.scale(DOT_RADIUS)
+	var yellow_dots: Array = []
+
+	for i in _day_keys.size():
+		var day_key: String = _day_keys[i]
+		if _is_day_locked(day_key):
+			continue
+		var minutes := ProductivityData.get_live_minutes_for_day(day_key)
+		if not TodayChartStyle.is_yellow_band(float(minutes)):
+			continue
+		var box_rect := Rect2(
+			plot_rect.position.x + i * (box_width + BOX_GAP),
+			plot_rect.position.y,
+			box_width,
+			plot_rect.size.y
+		)
+		var band := _yellow_band_rect(box_rect)
+		var center := Vector2(box_rect.position.x + box_rect.size.x * 0.5, _minutes_to_y(minutes, box_rect))
+		var band_visible := view.intersects(band)
+		var dot_visible := view.has_point(center) or band_visible
+		entries.append({
+			"id": "band_%s" % day_key,
+			"kind": "band",
+			"rect": band,
+			"visible": band_visible,
+			"weight": 0.65,
+		})
+		entries.append({
+			"id": "dot_%s" % day_key,
+			"kind": "dot",
+			"center": center,
+			"radius": radius * 2.6,
+			"visible": dot_visible,
+			"weight": 1.5,
+		})
+		yellow_dots.append({"key": day_key, "i": i, "center": center, "visible": dot_visible})
+
+	for n in yellow_dots.size() - 1:
+		var a: Dictionary = yellow_dots[n]
+		var b: Dictionary = yellow_dots[n + 1]
+		if int(a["i"]) + 1 != int(b["i"]):
+			continue
+		entries.append({
+			"id": "path_%s_%s" % [str(a["key"]), str(b["key"])],
+			"kind": "path",
+			"points": PackedVector2Array([a["center"], b["center"]]),
+			"visible": bool(a["visible"]) or bool(b["visible"]),
+			"weight": 0.8,
+		})
+	_fx.sync_targets(entries)
+
+
+func _yellow_band_rect(box_rect: Rect2) -> Rect2:
+	var y_top := _hours_to_y(ProductivityData.high_goal_hours, box_rect)
+	var y_bottom := _hours_to_y(ProductivityData.medium_goal_hours, box_rect)
+	return Rect2(
+		box_rect.position.x,
+		y_top,
+		box_rect.size.x,
+		maxf(y_bottom - y_top, 1.0)
+	)
 
 
 func _draw_week_boundary_bar(
